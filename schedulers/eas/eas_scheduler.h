@@ -17,8 +17,20 @@ struct EasTask : public Task<> {
   };
 
   explicit EasTask(Gtid Eas_task_gtid, ghost_sw_info sw_info)
-      : Task<>(Eas_task_gtid, sw_info) {}
+      : Task<>(Eas_task_gtid, sw_info), vruntime(absl::ZeroDuration()) {}
   ~EasTask() override {}
+
+  absl::Duration vruntime;
+
+  // std::multiset expects one to pass a strict (< not <=) weak ordering
+  // function as a template parameter. Technically, this doesn't have to be
+  // inside of the struct, but it seems logical to keep this here.
+  static bool Less(EasTask *a, EasTask *b) {
+    if (a->vruntime == b->vruntime) {
+      return (uintptr_t)a < (uintptr_t)b;
+    }
+    return a->vruntime < b->vruntime;
+  }
 
   bool paused() const { return run_state == RunState::kPaused; }
   bool blocked() const { return run_state == RunState::kBlocked; }
@@ -54,70 +66,113 @@ struct EasTask : public Task<> {
   int cpu = -1;
 
   void CalculateSchedEnergy();
-
-  // Comparator for min-heap runqueue.
-  struct SchedEnergyGreater {
-    // Returns true if 'a' should be ordered after 'b' in the min-heap
-    // and false otherwise.
-    bool operator()(EasTask *a, EasTask *b) const {
-      return true; // TODO: compare energy
-    }
-  };
-};
-
-template <typename T, class Container = std::vector<T>,
-          class Compare = std::less<typename Container::value_type>>
-class removable_priority_queue
-    : public std::priority_queue<T, Container, Compare> {
-public:
-  bool remove(const T &value) {
-    auto it = std::find(this->c.begin(), this->c.end(), value);
-
-    if (it == this->c.end()) {
-      return false;
-    }
-    if (it == this->c.begin()) {
-      // deque the top element
-      this->pop();
-    } else {
-      // remove element and re-heap
-      this->c.erase(it);
-      std::make_heap(this->c.begin(), this->c.end(), this->comp);
-    }
-    return true;
-  }
 };
 
 class EasRq {
 public:
-  EasRq() = default;
+  explicit EasRq();
   EasRq(const EasRq &) = delete;
   EasRq &operator=(EasRq &) = delete;
 
-  // Pop the top element in the priority queue
-  EasTask *Dequeue();
-  // Push into the priority queue
-  void Enqueue(EasTask *task);
+  // See EasRq::granularity_ for a description of how these parameters work.
+  void SetMinGranularity(absl::Duration t) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  void SetLatency(absl::Duration t) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  // Erase 'task' from the runqueue.
-  //
-  // Caller must ensure that 'task' is on the runqueue in the first place
-  // (e.g. via task->queued()).
-  void Erase(EasTask *task);
+  // Returns the length of time that the task should run in real time before it
+  // is preempted. This value is equivalent to:
+  // IF min_granularity * num_tasks > latency THEN min_granularity
+  // ELSE latency / num_tasks
+  // The purpose of having granularity is so that even if a task has a lot
+  // of vruntime to makeup, it doesn't hog all the cputime.
+  // TODO: update this when we introduce nice values.
+  // NOTE: This needs to be updated everytime we change the number of tasks
+  // associated with the runqueue changes. e.g. simply pulling a task out of
+  // rq to give it time on the cpu doesn't require a change as we still manage
+  // the same number of tasks. But a task blocking, departing, or adding
+  // a new task, does require an update.
+  absl::Duration MinPreemptionGranularity() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  size_t Size() const {
-    absl::MutexLock lock(&mu_);
-    return rq_.size();
+  // PickNextTask checks if prev should run again, and if so, returns prev.
+  // Otherwise, it picks the task with the smallest vruntime.
+  // PickNextTask also is the sync up point for processing state changes to
+  // prev. PickNextTask sets the state of its returned task to kOnCpu.
+  EasTask *PickNextTask(EasTask *prev, TaskAllocator<EasTask> *allocator,
+                        CpuState *cs) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  // Enqueues a new task or a task that is coming from being blocked.
+  void EnqueueTask(EasTask *task) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  // Enqueue a task that is transitioning from being on the cpu to off the cpu.
+  void PutPrevTask(EasTask *task) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  // DequeueTask 'task' from the runqueue. Task must be on rq.
+  void DequeueTask(EasTask *task) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  // The enqueued task with the smallest vruntime, or a nullptr if there are not
+  // enqueued tasks.
+  EasTask *LeftmostRqTask() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    return rq_.empty() ? nullptr : *rq_.begin();
   }
 
-  bool Empty() const { return Size() == 0; }
+  // Attaches tasks to the run queue in batch.
+  void AttachTasks(const std::vector<EasTask *> &tasks_to_attach)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  // Detaches at most `n` eligible tasks from this run queue and appends to the
+  // vector of tasks. A task is eligible for detaching from its source RQ if
+  // (i) affinity mask of `task` allows dst_cs->id to run it and (ii) channel
+  // association succeeds with task struct's seqnum to dst_cs->channel. Returns
+  // the number of tasks detached.
+  int DetachTasks(const CpuState *dst_cs, int n,
+                  std::vector<EasTask *> &detached_tasks)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  // Determines whether `task` can be migrated to `dst_cpu`. `task` should be on
+  // this run queue. Similar to the upstream kernel implementation of
+  // `can_migrate_task`.
+  bool CanMigrateTask(EasTask *task, const CpuState *dst_cs);
+
+  // Returns the exact size of the run queue.
+  size_t Size() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) { return rq_.size(); }
+
+  // Returns the last known size of the run queue, without acquiring any lock.
+  // The returned size might be stale if read from a context other than the
+  // agent that owns the queue.
+  size_t LocklessSize() const {
+    return rq_size_.load(std::memory_order_relaxed);
+  }
+
+  bool IsEmpty() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    return rq_.empty();
+  }
+
+  // Needs to be called everytime we touch the rq or update a current task's
+  // vruntime.
+  void UpdateMinVruntime(CpuState *cs) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  // Protects this runqueue and the state of any task assoicated with the rq.
+  mutable absl::Mutex mu_;
 
 private:
-  mutable absl::Mutex mu_;
-  // std::vector<EasTask *> rq_ ABSL_GUARDED_BY(mu_);
-  removable_priority_queue<EasTask *, std::vector<EasTask *>,
-                           EasTask::SchedEnergyGreater>
-      rq_ ABSL_GUARDED_BY(mu_);
+  // Inserts a task into the backing runqueue.
+  // Preconditons: task->vruntime has been set to a logical value.
+  void InsertTaskIntoRq(EasTask *task) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  absl::Duration min_vruntime_ ABSL_GUARDED_BY(mu_);
+
+  // Unlike in-kernel Eas, we want to have this properties per run-queue instead
+  // of system wide.
+  absl::Duration min_preemption_granularity_ ABSL_GUARDED_BY(mu_);
+  absl::Duration latency_ ABSL_GUARDED_BY(mu_);
+
+  // We use a set as the backing data structure as, according to the
+  // C++ standard, it is backed by a red-black tree, which is the backing
+  // data structure in Eas in the the kernel. While opaque, using an std::
+  // container is easiest way to use a red-black tree short of writing or
+  // importing our own.
+  std::set<EasTask *, decltype(&EasTask::Less)> rq_ ABSL_GUARDED_BY(mu_);
+  // Used for lockless reads of rq size.
+  std::atomic<size_t> rq_size_{0};
 };
 
 class EasScheduler : public BasicDispatchScheduler<EasTask> {
