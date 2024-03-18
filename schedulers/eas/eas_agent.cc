@@ -1,7 +1,11 @@
+#include "absl/debugging/symbolize.h"
 #include "absl/flags/parse.h"
 #include "lib/agent.h"
 #include "lib/enclave.h"
-#include "schedulers/eas/per_cpu/eas_scheduler.h"
+#include "schedulers/eas/eas_scheduler.h"
+
+ABSL_FLAG(std::string, ghost_cpus, "1-5", "cpulist");
+ABSL_FLAG(std::string, enclave, "", "Connect to preexisting enclave directory");
 
 namespace ghost {
 
@@ -33,7 +37,7 @@ int main(int argc, char *argv[]) {
   printf("Initializing...\n");
 
   // Using new so we can destruct the object before printing Done
-  auto uap = new ghost::AgentProcess<ghost::FullFifoAgent<ghost::LocalEnclave>,
+  auto uap = new ghost::AgentProcess<ghost::FullEasAgent<ghost::LocalEnclave>,
                                      ghost::AgentConfig>(config);
 
   ghost::GhostHelper()->InitCore();
@@ -59,7 +63,7 @@ int main(int argc, char *argv[]) {
 
   // TODO: this is racy - uap could be deleted already
   ghost::GhostSignals::AddHandler(SIGUSR1, [uap](int) {
-    uap->Rpc(ghost::FifoScheduler::kDebugRunqueue);
+    uap->Rpc(ghost::EasScheduler::kDebugRunqueue);
     return false;
   });
 

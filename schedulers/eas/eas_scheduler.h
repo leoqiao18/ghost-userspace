@@ -3,6 +3,7 @@
 
 #include "lib/agent.h"
 #include "lib/scheduler.h"
+#include <queue>
 
 namespace ghost {
 
@@ -10,6 +11,7 @@ struct EasTask : public Task<> {
   enum class RunState {
     kBlocked,
     kQueued,
+    kRunnable,
     kOnCpu,
     kPaused,
   };
@@ -21,6 +23,7 @@ struct EasTask : public Task<> {
   bool paused() const { return run_state == RunState::kPaused; }
   bool blocked() const { return run_state == RunState::kBlocked; }
   bool queued() const { return run_state == RunState::kQueued; }
+  bool runnable() const { return run_state == RunState::kRunnable; }
   bool oncpu() const { return run_state == RunState::kOnCpu; }
 
   static std::string_view RunStateToString(EasTask::RunState run_state) {
@@ -33,6 +36,8 @@ struct EasTask : public Task<> {
       return "OnCpu";
     case EasTask::RunState::kPaused:
       return "Paused";
+    case EasTask::RunState::kRunnable:
+      return "Runnable";
       // We will get a compile error if a new member is added to the
       // `EasTask::RunState` enum and a corresponding case is not added here.
     }
@@ -46,6 +51,7 @@ struct EasTask : public Task<> {
   }
 
   RunState run_state = RunState::kBlocked;
+  int cpu = -1;
 
   void CalculateSchedEnergy();
 
@@ -57,6 +63,61 @@ struct EasTask : public Task<> {
       return true; // TODO: compare energy
     }
   };
+};
+
+template <typename T, class Container = std::vector<T>,
+          class Compare = std::less<typename Container::value_type>>
+class removable_priority_queue
+    : public std::priority_queue<T, Container, Compare> {
+public:
+  bool remove(const T &value) {
+    auto it = std::find(this->c.begin(), this->c.end(), value);
+
+    if (it == this->c.end()) {
+      return false;
+    }
+    if (it == this->c.begin()) {
+      // deque the top element
+      this->pop();
+    } else {
+      // remove element and re-heap
+      this->c.erase(it);
+      std::make_heap(this->c.begin(), this->c.end(), this->comp);
+    }
+    return true;
+  }
+};
+
+class EasRq {
+public:
+  EasRq() = default;
+  EasRq(const EasRq &) = delete;
+  EasRq &operator=(EasRq &) = delete;
+
+  // Pop the top element in the priority queue
+  EasTask *Dequeue();
+  // Push into the priority queue
+  void Enqueue(EasTask *task);
+
+  // Erase 'task' from the runqueue.
+  //
+  // Caller must ensure that 'task' is on the runqueue in the first place
+  // (e.g. via task->queued()).
+  void Erase(EasTask *task);
+
+  size_t Size() const {
+    absl::MutexLock lock(&mu_);
+    return rq_.size();
+  }
+
+  bool Empty() const { return Size() == 0; }
+
+private:
+  mutable absl::Mutex mu_;
+  // std::vector<EasTask *> rq_ ABSL_GUARDED_BY(mu_);
+  removable_priority_queue<EasTask *, std::vector<EasTask *>,
+                           EasTask::SchedEnergyGreater>
+      rq_ ABSL_GUARDED_BY(mu_);
 };
 
 class EasScheduler : public BasicDispatchScheduler<EasTask> {
@@ -125,6 +186,57 @@ private:
 
   CpuState cpu_states_[MAX_CPUS];
   Channel *default_channel_ = nullptr;
+};
+
+std::unique_ptr<EasScheduler> MultiThreadedEasScheduler(Enclave *enclave,
+                                                        CpuList cpulist);
+
+class EasAgent : public LocalAgent {
+public:
+  EasAgent(Enclave *enclave, Cpu cpu, EasScheduler *scheduler)
+      : LocalAgent(enclave, cpu), scheduler_(scheduler) {}
+
+  void AgentThread() override;
+  Scheduler *AgentScheduler() const override { return scheduler_; }
+
+private:
+  EasScheduler *scheduler_;
+};
+
+template <class EnclaveType>
+class FullEasAgent : public FullAgent<EnclaveType> {
+public:
+  explicit FullEasAgent(AgentConfig config) : FullAgent<EnclaveType>(config) {
+    scheduler_ =
+        MultiThreadedEasScheduler(&this->enclave_, *this->enclave_.cpus());
+    this->StartAgentTasks();
+    this->enclave_.Ready();
+  }
+
+  ~FullEasAgent() override { this->TerminateAgentTasks(); }
+
+  std::unique_ptr<Agent> MakeAgent(const Cpu &cpu) override {
+    return std::make_unique<EasAgent>(&this->enclave_, cpu, scheduler_.get());
+  }
+
+  void RpcHandler(int64_t req, const AgentRpcArgs &args,
+                  AgentRpcResponse &response) override {
+    switch (req) {
+    case EasScheduler::kDebugRunqueue:
+      scheduler_->debug_runqueue_ = true;
+      response.response_code = 0;
+      return;
+    case EasScheduler::kCountAllTasks:
+      response.response_code = scheduler_->CountAllTasks();
+      return;
+    default:
+      response.response_code = -1;
+      return;
+    }
+  }
+
+private:
+  std::unique_ptr<EasScheduler> scheduler_;
 };
 
 } // namespace ghost
