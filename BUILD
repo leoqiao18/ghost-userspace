@@ -160,7 +160,7 @@ cc_binary(
 )
 
 cc_binary(
-    name = "agent_eas",
+    name = "eas_agent",
     srcs = [
         "schedulers/eas/eas_agent.cc",
     ],
