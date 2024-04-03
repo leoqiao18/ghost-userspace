@@ -2,6 +2,7 @@
 #define GHOST_SCHEDULERS_EAS_ENERGY_WORKER_H_
 
 #include "absl/synchronization/mutex.h"
+#include <unordered_set>
 
 #define EAS_ENERGY_GAMMA 0.5
 #define EAS_ENERGY_SCORE_MAX 15
@@ -9,6 +10,7 @@
 #define EAS_ENERGY_SCORE_DEFAULT 0
 
 namespace ghost {
+
 
 class EnergyState {
 
@@ -21,11 +23,16 @@ public:
     void update(pid_t pid, double consumption) {
         absl::MutexLock lock(&mu_);
 
+        // skip if we don't care about this pid
+        if (pid_to_tasks.find(pid) == pid_to_tasks.end()) return;
+
+
+        // update the consumption
         auto it = pid_to_watts.find(pid);
         if (it == pid_to_watts.end()) {
-            it->second = consumption;
+            pid_to_watts[pid] = consumption;
         } else {
-            it->second = (1 - EAS_ENERGY_GAMMA) * it->second + EAS_ENERGY_GAMMA * consumption;
+            pid_to_watts[pid] = (1 - EAS_ENERGY_GAMMA) * pid_to_watts[pid] + EAS_ENERGY_GAMMA * consumption;
         }
 
         if (it->second > max_watts) {
@@ -35,7 +42,80 @@ public:
         }
     }
 
-    int score(pid_t pid) {
+    pid_t pid_of_tid(pid_t tid) {
+        char filename[1024];
+        snprintf(filename, sizeof(filename), "/proc/%d/status", tid);
+
+        FILE *file = fopen(filename, "r");
+        if (!file) {
+            perror("fopen proc status");
+            return -1;
+        }
+
+        pid_t pid = -1;
+        char line[256];
+        while (fgets(line, sizeof(line), file)) {
+            if (sscanf(line, "Tgid: %d", &pid) == 1) {
+                break;
+            }
+        }
+
+        fclose(file);
+        return pid;
+    }
+
+    void add_task(pid_t tid) {
+        pid_t pid = pid_of_tid(tid);
+
+        absl::MutexLock lock(&mu_);
+        pid_to_tasks[pid].insert(tid);
+    }
+
+    void remove_task(pid_t tid) {
+        pid_t pid = pid_of_tid(tid);
+
+        absl::MutexLock lock(&mu_);
+        auto it = pid_to_tasks.find(pid);
+        if (it == pid_to_tasks.end()) return;
+
+        pid_to_tasks[pid].erase(tid);
+
+        // reference counting reaches 0
+        if (pid_to_tasks[pid].size() <= 0) {
+            // erase the ref counting entry
+            pid_to_tasks.erase(pid);
+
+            // update the energy stuff
+            auto it = pid_to_watts.find(pid);
+            if (it == pid_to_watts.end()) {
+                return;
+            }
+
+            double watts = it->second;
+            pid_to_watts.erase(pid);
+
+            if (pid_to_watts.size() == 0) {
+                max_watts = 0;
+                min_watts = 0;
+                return;
+            }
+
+            if (watts == max_watts) {
+                max_watts = 0;
+                for (auto [_, v] : pid_to_watts) {
+                    max_watts = std::max(max_watts, v);
+                }
+            } else if (watts == min_watts) {
+                min_watts = std::numeric_limits<double>::max();
+                for (auto [_, v] : pid_to_watts) {
+                    min_watts = std::min(min_watts, v);
+                }
+            }
+        }
+    }
+
+    int score(pid_t tid) {
+        pid_t pid = pid_of_tid(tid);
         absl::MutexLock lock(&mu_);
 
         auto it = pid_to_watts.find(pid);
@@ -56,40 +136,12 @@ public:
     }
 
 
-    void remove(pid_t pid) {
-        absl::MutexLock lock(&mu_);
-
-        auto it = pid_to_watts.find(pid);
-        if (it == pid_to_watts.end()) {
-            return;
-        }
-
-        double watts = it->second;
-        pid_to_watts.erase(pid);
-
-        if (pid_to_watts.size() == 0) {
-            max_watts = 0;
-            min_watts = 0;
-            return;
-        }
-
-        if (watts == max_watts) {
-            max_watts = 0;
-            for (auto [_, v] : pid_to_watts) {
-                max_watts = std::max(max_watts, v);
-            }
-        } else if (watts == min_watts) {
-            min_watts = std::numeric_limits<double>::max();
-            for (auto [_, v] : pid_to_watts) {
-                min_watts = std::min(min_watts, v);
-            }
-        }
-    }
 
 private:
     mutable absl::Mutex mu_;
 
     std::unordered_map<pid_t, double> pid_to_watts;
+    std::unordered_map<pid_t, std::unordered_set<pid_t>> pid_to_tasks;
     double max_watts;
     double min_watts;
 };
