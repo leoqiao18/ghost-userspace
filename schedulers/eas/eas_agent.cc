@@ -14,6 +14,10 @@
 #include "lib/agent.h"
 #include "lib/enclave.h"
 #include "schedulers/eas/eas_scheduler.h"
+#include "schedulers/eas/energy_worker.h"
+
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
 
 ABSL_FLAG(std::string, ghost_cpus, "1-5", "cpulist");
 ABSL_FLAG(std::string, enclave, "", "Connect to preexisting enclave directory");
@@ -26,6 +30,7 @@ ABSL_FLAG(absl::Duration, latency, absl::Milliseconds(10),
           "The target time period in which all tasks will run at least once");
 
 namespace ghost {
+
 
 static void ParseAgentConfig(EasConfig *config) {
   CpuList ghost_cpus =

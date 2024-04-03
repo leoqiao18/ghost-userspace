@@ -31,6 +31,8 @@
 #include "lib/logging.h"
 #include "lib/topology.h"
 
+#include "schedulers/eas/energy_worker.h"
+
 #define DPRINT_EAS(level, message)                                             \
   do {                                                                         \
     if (ABSL_PREDICT_TRUE(verbose() < level))                                  \
@@ -869,8 +871,10 @@ void EasScheduler::EasSchedule(const Cpu &cpu, BarrierToken agent_barrier,
       //         = wall_runtime * 2^10 / (2^32 / precomputed_inverse_weight)
       //         = wall_runtime * precomputed_inverse_weight / 2^22
       uint64_t runtime = next->status_word.runtime() - before_runtime;
+      int energy_score = energy_state.score(next->gtid);
+      uint32_t energy_inverse_weight = EasScheduler::kNiceToInverseWeight[energy_score - EasScheduler::kMinNice];
       next->vruntime += absl::Nanoseconds(static_cast<uint64_t>(
-          static_cast<absl::uint128>(next->inverse_weight) * runtime >> 22));
+          static_cast<absl::uint128>(energy_inverse_weight) * static_cast<absl::uint128>(next->inverse_weight) * runtime >> 22));
     } else {
       GHOST_DPRINT(3, stderr, "EasSchedule: commit failed (state=%d)",
                    req->state());

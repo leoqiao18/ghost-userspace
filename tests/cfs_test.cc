@@ -98,7 +98,8 @@ TEST_F(CfsTest, RespectsNewTaskAffinity) {
 
   for (uint32_t i = 0; i < kNumThreads; i++) {
     threads.emplace_back(
-        std::make_unique<GhostThread>(GhostThread::KernelScheduler::kCfs, [] {
+        std::make_unique<GhostThread>(GhostThread::KernelScheduler::kCfs, [i] {
+          printf("Thread %d, pid %d, tid %d\n", i, getpid(), gettid());
           // Migrate all the threads to CPU 1 by setting affinity.
           EXPECT_THAT(GhostHelper()->SchedSetAffinity(
                           Gtid::Current(),

@@ -1,7 +1,15 @@
 workspace(name = "com_google_ghost")
 
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+# JSON library
+git_repository(
+    name = "nlohmann_json",
+    remote = "https://github.com/nlohmann/json",
+    branch = "v3.11.3",
+)
 
 # We clone the ghOSt Linux kernel so that we can use libbpf and bpftool when
 # compiling our eBPF programs, eBPF skeleton headers, and eBPF userspace

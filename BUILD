@@ -169,8 +169,16 @@ cc_binary(
         ":agent",
         ":eas_scheduler",
         # ":topology",
+        "@nlohmann_json//:json",
+        ":topology",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/debugging:symbolize",
         "@com_google_absl//absl/flags:parse",
+        "@com_google_absl//absl/functional:any_invocable",
+        "@com_google_absl//absl/numeric:int128",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
     ],
 )
 
@@ -178,9 +186,11 @@ cc_library(
     name = "eas_scheduler",
     srcs = [
         "schedulers/eas/eas_scheduler.cc",
+        "schedulers/eas/energy_worker.cc",
     ],
     hdrs = [
         "schedulers/eas/eas_scheduler.h",
+        "schedulers/eas/energy_worker.h",
     ],
     copts = compiler_flags,
     deps = [
@@ -191,6 +201,15 @@ cc_library(
         # "@com_google_absl//absl/functional:bind_front",
         # "@com_google_absl//absl/strings:str_format",
         # "@linux//:libbpf",
+        ":topology",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/debugging:symbolize",
+        "@com_google_absl//absl/flags:parse",
+        "@com_google_absl//absl/functional:any_invocable",
+        "@com_google_absl//absl/numeric:int128",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
     ],
 )
 
