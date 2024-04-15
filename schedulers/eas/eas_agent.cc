@@ -17,6 +17,7 @@
 #include "schedulers/eas/energy_worker.h"
 
 #include <nlohmann/json.hpp>
+#include <ext/stdio_filebuf.h>
 using json = nlohmann::json;
 
 ABSL_FLAG(std::string, ghost_cpus, "1-5", "cpulist");
@@ -53,6 +54,30 @@ static void ParseAgentConfig(EasConfig *config) {
 
 } // namespace ghost
 
+
+void *thread_function(void *arg) {
+
+    FILE *pipe = popen("scaphandre json -s 1", "r");
+    if (!pipe) {
+        std::cerr << "Error: Failed to open pipe\n";
+        return EXIT_FAILURE;
+    }
+
+    // Read from the pipe
+    nlohmann::json j;
+    auto filebuf = new __gnu_cxx::stdio_filebuf<char>(pipe, std::ios::in);
+    auto s = new std::istream(filebuf);
+
+    while (s >> j) {
+      for (auto& process : j["processes"]) {
+        std::cout << "pid:" << process["pid"] << "," 
+                  << "consumption:" << process["consumption"] << std::endl;
+      }
+    }
+
+    return NULL;
+}
+
 int main(int argc, char *argv[]) {
   absl::InitializeSymbolizer(argv[0]);
   absl::ParseCommandLine(argc, argv);
@@ -61,6 +86,17 @@ int main(int argc, char *argv[]) {
   ghost::ParseAgentConfig(&config);
 
   printf("Initializing...\n");
+
+  // fork an energy worker
+  pthread_t tid; // Thread ID
+  int result;
+
+  // Create a new thread
+  result = pthread_create(&tid, NULL, thread_function, NULL);
+  if (result != 0) {
+      perror("Thread creation failed");
+      return 1;
+  }
 
   // Using new so we can destruct the object before printing Done
   auto uap = new ghost::AgentProcess<ghost::FullEasAgent<ghost::LocalEnclave>,
@@ -99,5 +135,6 @@ int main(int argc, char *argv[]) {
 
   printf("\nDone!\n");
 
+  pthread_join(tid, NULL);
   return 0;
 }
