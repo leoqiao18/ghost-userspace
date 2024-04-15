@@ -29,10 +29,8 @@ def main():
     for cmd in cmds:
         p = subprocess.Popen(cmd)
         procs.append(p)
-        if p.pid:
-            register_to_enclave(p.pid)
-        else:
-            print("Unexpected")
+        register_to_enclave(p.pid)
+        print(f"Registered pid={p.pid} ({cmd})")
     
     signal.pause()
 
