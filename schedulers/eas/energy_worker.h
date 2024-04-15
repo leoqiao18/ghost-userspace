@@ -65,16 +65,16 @@ public:
         return pid;
     }
 
-    void add_task(pid_t tid) {
+    void add_task(pid_t pid) {
         printf("add_task - tid: %d\n", tid);
-        pid_t pid = pid_of_tid(tid);
+        //pid_t pid = pid_of_tid(tid);
 
         absl::MutexLock lock(&mu_);
         pid_to_tasks[pid].insert(tid);
     }
 
-    void remove_task(pid_t tid) {
-        pid_t pid = pid_of_tid(tid);
+    void remove_task(pid_t pid) {
+        //pid_t pid = pid_of_tid(tid);
 
         absl::MutexLock lock(&mu_);
         auto it = pid_to_tasks.find(pid);

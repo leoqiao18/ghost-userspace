@@ -402,7 +402,7 @@ void EasScheduler::TaskNew(EasTask *task, const Message &msg) {
     // and MSG_TASK_WAKEUP showing up on the default channel.
   }
 
-  energy_state.add_task(task->gtid.id());
+  energy_state.add_task(task->gtid.tgid());
 }
 
 void EasScheduler::TaskRunnable(EasTask *task, const Message &msg) {
