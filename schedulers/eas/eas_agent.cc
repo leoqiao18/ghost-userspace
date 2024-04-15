@@ -66,7 +66,7 @@ void *thread_function(void *arg) {
     // Read from the pipe
     nlohmann::json j;
     __gnu_cxx::stdio_filebuf<char> filebuf(pipe, std::ios::in);
-    std::istream s(filebuf);
+    std::istream s(&filebuf);
 
     // while (s >> j) {
     //   for (auto& process : j["processes"]) {
