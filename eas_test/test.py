@@ -1,13 +1,8 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 import subprocess
 import re
 import sys
-
-def run_new_proc(cmd):  
-    # Run the command and capture output
-    process = subprocess.Popen(cmd, shell=True)
-    return process.pid
-
+import signal
 
 
 def register_to_enclave(pid):
@@ -18,16 +13,29 @@ def register_to_enclave(pid):
     except subprocess.CalledProcessError as e:
         print(f"Error writing pid {pid}: {e}")
 
+def handle_sigint(procs):
+    def _handle_sigint(sig, frame):
+        for p in procs:
+            p.kill()
+    return _handle_sigint
+
 
 def main():
     cmds = ["./loop.py", "./sleep.py"]
+
+    procs = []
+    signal.signal(signal.SIGINT, handle_sigint(procs))
+
     for cmd in cmds:
-        pid = run_new_proc(cmd)
-        if pid:
-            register_to_enclave(pid)
+        p = subprocess.Popen(cmd)
+        procs.append(p)
+        if p.pid:
+            register_to_enclave(p.pid)
         else:
             print("Unexpected")
-            sys.exit(1)
+    
+    signal.pause()
+
 
 
 if __name__ == "__main__":
