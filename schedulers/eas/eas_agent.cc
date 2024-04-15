@@ -68,8 +68,17 @@ void *thread_function(void *arg) {
     auto filebuf = new __gnu_cxx::stdio_filebuf<char>(pipe, std::ios::in);
     auto s = new std::istream(filebuf);
 
-    while (s >> j) {
-      for (auto& process : j["processes"]) {
+    // while (s >> j) {
+    //   for (auto& process : j["processes"]) {
+    //     std::cout << "pid:" << process["pid"] << "," 
+    //               << "consumption:" << process["consumption"] << std::endl;
+    //   }
+    // }
+
+    std::string line;
+    while (std::getline(s, line)) {
+      json parsed_json = json::parse(line);
+      for (auto& process : parsed_json["processes"]) {
         std::cout << "pid:" << process["pid"] << "," 
                   << "consumption:" << process["consumption"] << std::endl;
       }
