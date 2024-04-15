@@ -70,12 +70,10 @@ void *thread_function(void *arg) {
 
     while (s >> j) {
       for (auto& process : j["consumers"]) {
-        std::cout << "pid:" << process["pid"]
-                  << ", consumption:" << process["consumption"]
-                  << std::endl
-                  << std::flush;
+        energy_state.update(process["pid"].get<int>(), 
+                            process["consumption"].get<double>());
+        energy_state.print_current_state();
       }
-      
     }
 
     return NULL;

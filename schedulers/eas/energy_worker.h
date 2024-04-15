@@ -135,6 +135,17 @@ public:
         return score;
     }
 
+    void print_current_state() {
+        absl::MutexLock lock(&mu_);
+        for (auto& [p, w] : pid_to_watts) {
+            std::cout << "pid: " << p 
+                      << "\twatts: " << w 
+                      << std::endl;
+        }
+        cout << "min watts: " << min_watts << std::endl;
+        cout << "max watts: " << max_watts << std::endl;
+        cout << "--------------------------------- " << std::endl << std::flush;
+    }
 
 
 private:
