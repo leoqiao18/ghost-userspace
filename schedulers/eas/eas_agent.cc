@@ -60,7 +60,7 @@ void *thread_function(void *arg) {
     FILE *pipe = popen("scaphandre json -s 1", "r");
     if (!pipe) {
         std::cerr << "Error: Failed to open pipe\n";
-        return EXIT_FAILURE;
+        return (void *) 1;
     }
 
     // Read from the pipe
