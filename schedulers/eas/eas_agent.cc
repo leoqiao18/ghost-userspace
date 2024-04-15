@@ -57,7 +57,7 @@ static void ParseAgentConfig(EasConfig *config) {
 
 void *thread_function(void *arg) {
 
-    FILE *pipe = popen("scaphandre json -s 1", "r");
+    FILE *pipe = popen("scaphandre --no-header json -s 1", "r");
     if (!pipe) {
         std::cerr << "Error: Failed to open pipe\n";
         return (void *) 1;
@@ -68,17 +68,8 @@ void *thread_function(void *arg) {
     __gnu_cxx::stdio_filebuf<char> filebuf(pipe, std::ios::in);
     std::istream s(&filebuf);
 
-    // while (s >> j) {
-    //   for (auto& process : j["processes"]) {
-    //     std::cout << "pid:" << process["pid"] << "," 
-    //               << "consumption:" << process["consumption"] << std::endl;
-    //   }
-    // }
-
-    std::string line;
-    while (std::getline(s, line)) {
-      json parsed_json = json::parse(line);
-      for (auto& process : parsed_json["processes"]) {
+    while (s >> j) {
+      for (auto& process : j["processes"]) {
         std::cout << "pid:" << process["pid"] << "," 
                   << "consumption:" << process["consumption"] << std::endl;
       }
