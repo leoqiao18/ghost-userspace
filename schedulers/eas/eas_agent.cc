@@ -69,10 +69,13 @@ void *thread_function(void *arg) {
     std::istream s(&filebuf);
 
     while (s >> j) {
-      for (auto& process : j["processes"]) {
-        std::cout << "pid:" << process["pid"] << "," 
-                  << "consumption:" << process["consumption"] << std::endl;
+      for (auto& process : j["consumers"]) {
+        std::cout << "pid:" << process["pid"]
+                  << ", consumption:" << process["consumption"]
+                  << std::endl
+                  << std::flush;
       }
+      
     }
 
     return NULL;
