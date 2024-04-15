@@ -52,7 +52,6 @@ static void ParseAgentConfig(EasConfig *config) {
   config->latency_ = absl::GetFlag(FLAGS_latency);
 }
 
-} // namespace ghost
 
 
 void *thread_function(void *arg) {
@@ -72,12 +71,13 @@ void *thread_function(void *arg) {
       for (auto& process : j["consumers"]) {
         energy_state.update(process["pid"].get<int>(), 
                             process["consumption"].get<double>());
-        energy_state.print_current_state();
       }
+      energy_state.print_current_state();
     }
 
     return NULL;
 }
+} // namespace ghost
 
 int main(int argc, char *argv[]) {
   absl::InitializeSymbolizer(argv[0]);
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
   int result;
 
   // Create a new thread
-  result = pthread_create(&tid, NULL, thread_function, NULL);
+  result = pthread_create(&tid, NULL, ghost::thread_function, NULL);
   if (result != 0) {
       perror("Thread creation failed");
       return 1;

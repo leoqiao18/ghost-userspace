@@ -3,6 +3,7 @@
 
 #include "absl/synchronization/mutex.h"
 #include <unordered_set>
+#include <iostream>
 
 #define EAS_ENERGY_GAMMA 0.5
 #define EAS_ENERGY_SCORE_MAX 15
@@ -142,9 +143,9 @@ public:
                       << "\twatts: " << w 
                       << std::endl;
         }
-        cout << "min watts: " << min_watts << std::endl;
-        cout << "max watts: " << max_watts << std::endl;
-        cout << "--------------------------------- " << std::endl << std::flush;
+        std::cout << "min watts: " << min_watts << std::endl;
+        std::cout << "max watts: " << max_watts << std::endl;
+        std::cout << "--------------------------------- " << std::endl << std::flush;
     }
 
 
