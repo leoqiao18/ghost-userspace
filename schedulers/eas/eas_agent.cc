@@ -54,29 +54,29 @@ static void ParseAgentConfig(EasConfig *config) {
 
 
 
-void *thread_function(void *arg) {
-
-    FILE *pipe = popen("scaphandre --no-header json -s 1", "r");
-    if (!pipe) {
-        std::cerr << "Error: Failed to open pipe\n";
-        return (void *) 1;
-    }
-
-    // Read from the pipe
-    nlohmann::json j;
-    __gnu_cxx::stdio_filebuf<char> filebuf(pipe, std::ios::in);
-    std::istream s(&filebuf);
-
-    while (s >> j) {
-      for (auto& process : j["consumers"]) {
-        energy_state.update(process["pid"].get<int>(), 
-                            process["consumption"].get<double>());
-      }
-      energy_state.print_current_state();
-    }
-
-    return NULL;
-}
+// void *energy_worker_thread(void *arg) {
+//
+//     FILE *pipe = popen("scaphandre --no-header json -s 1", "r");
+//     if (!pipe) {
+//         std::cerr << "Error: Failed to open pipe\n";
+//         return (void *) 1;
+//     }
+//
+//     // Read from the pipe
+//     nlohmann::json j;
+//     __gnu_cxx::stdio_filebuf<char> filebuf(pipe, std::ios::in);
+//     std::istream s(&filebuf);
+//
+//     while (s >> j) {
+//       for (auto& process : j["consumers"]) {
+//         energy_state.update(process["pid"].get<int>(), 
+//                             process["consumption"].get<double>());
+//       }
+//       energy_state.print_current_state();
+//     }
+//
+//     return NULL;
+// }
 } // namespace ghost
 
 int main(int argc, char *argv[]) {
@@ -88,16 +88,6 @@ int main(int argc, char *argv[]) {
 
   printf("Initializing...\n");
 
-  // fork an energy worker
-  pthread_t tid; // Thread ID
-  int result;
-
-  // Create a new thread
-  result = pthread_create(&tid, NULL, ghost::thread_function, NULL);
-  if (result != 0) {
-      perror("Thread creation failed");
-      return 1;
-  }
 
   // Using new so we can destruct the object before printing Done
   auto uap = new ghost::AgentProcess<ghost::FullEasAgent<ghost::LocalEnclave>,
@@ -136,6 +126,5 @@ int main(int argc, char *argv[]) {
 
   printf("\nDone!\n");
 
-  pthread_join(tid, NULL);
   return 0;
 }

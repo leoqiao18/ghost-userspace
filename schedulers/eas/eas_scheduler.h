@@ -24,6 +24,10 @@
 #include "lib/base.h"
 #include "lib/scheduler.h"
 
+#include "schedulers/eas/energy_worker.h"
+#include <nlohmann/json.hpp>
+#include <ext/stdio_filebuf.h>
+
 static const absl::Time start = absl::Now();
 
 namespace ghost {
@@ -686,6 +690,28 @@ class FullEasAgent : public FullAgent<EnclaveType> {
                                   config.min_granularity_, config.latency_);
     this->StartAgentTasks();
     this->enclave_.Ready();
+
+    auto t = std::thread([]() {
+        FILE *pipe = popen("scaphandre --no-header json -s 1", "r");
+        if (!pipe) {
+            std::cerr << "Error: Failed to open pipe\n";
+            return (void *) 1;
+        }
+
+        // Read from the pipe
+        nlohmann::json j;
+        __gnu_cxx::stdio_filebuf<char> filebuf(pipe, std::ios::in);
+        std::istream s(&filebuf);
+
+        while (s >> j) {
+            energy_state.update(j["consumers"]);
+            energy_state.print_current_state();
+        }
+        
+        return (void *) NULL;
+    });
+
+    t.detach();
   }
 
   ~FullEasAgent() override { this->TerminateAgentTasks(); }

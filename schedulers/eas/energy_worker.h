@@ -4,6 +4,9 @@
 #include "absl/synchronization/mutex.h"
 #include <unordered_set>
 #include <iostream>
+#include "lib/ghost.h"
+
+#include <nlohmann/json.hpp>
 
 #define EAS_ENERGY_GAMMA 0.5
 #define EAS_ENERGY_SCORE_MAX 15
@@ -21,60 +24,47 @@ public:
         min_watts(0)
         {}
 
-    void update(pid_t pid, double consumption) {
+    void update(nlohmann::json consumers) {
         absl::MutexLock lock(&mu_);
 
-        // skip if we don't care about this pid
-        if (pid_to_tasks.find(pid) == pid_to_tasks.end()) return;
-
-
-        // update the consumption
-        auto it = pid_to_watts.find(pid);
-        if (it == pid_to_watts.end()) {
-            pid_to_watts[pid] = consumption;
-        } else {
-            pid_to_watts[pid] = (1 - EAS_ENERGY_GAMMA) * pid_to_watts[pid] + EAS_ENERGY_GAMMA * consumption;
+        for (auto& c : consumers) {
+            update(c["pid"].get<int>(), c["consumption"].get<double>());
         }
 
-        if (it->second > max_watts) {
-            max_watts = it->second;
-        } else if (it->second < min_watts) {
-            min_watts = it->second;
-        }
-    }
-
-    pid_t pid_of_tid(pid_t tid) {
-        char filename[1024];
-        snprintf(filename, sizeof(filename), "/proc/%d/status", tid);
-
-        FILE *file = fopen(filename, "r");
-        if (!file) {
-            // perror("fopen proc status");
-            return -1;
+        if (pid_to_watts.size() == 0) {
+            min_watts = 0;
+            max_watts = 0;
+            return;
         }
 
-        pid_t pid = -1;
-        char line[256];
-        while (fgets(line, sizeof(line), file)) {
-            if (sscanf(line, "Tgid: %d", &pid) == 1) {
-                break;
+        auto it = pid_to_watts.begin();
+        min_watts = it->second;
+        max_watts = it->second;
+        for (it++; it != pid_to_watts.end(); it++) {
+            if (min_watts > it->second) {
+                min_watts = it->second;
+            }
+            if (max_watts < it->second) {
+                max_watts = it->second;
             }
         }
-
-        fclose(file);
-        return pid;
     }
 
-    void add_task(pid_t pid) {
-        printf("add_task - tid: %d\n", tid);
-        //pid_t pid = pid_of_tid(tid);
+
+    void add_task(Gtid gtid) {
+        pid_t pid = gtid.tgid();
+        pid_t tid = gtid.tid();
+        std::cout << "add_task - gtid: " << gtid.id() << ", pid: " << pid << ", tid: " << tid << std::endl;
 
         absl::MutexLock lock(&mu_);
         pid_to_tasks[pid].insert(tid);
+        // printf("size: %ld, set size: %ld\n", pid_to_tasks.size(), pid_to_tasks[pid].size());
     }
 
-    void remove_task(pid_t pid) {
-        //pid_t pid = pid_of_tid(tid);
+    void remove_task(Gtid gtid) {
+        pid_t pid = gtid.tgid();
+        pid_t tid = gtid.tid();
+        std::cout << "remove_task - gtid: " << gtid.id() << ", pid: " << pid << ", tid: " << tid << std::endl;
 
         absl::MutexLock lock(&mu_);
         auto it = pid_to_tasks.find(pid);
@@ -116,8 +106,8 @@ public:
         }
     }
 
-    int score(pid_t tid) {
-        pid_t pid = pid_of_tid(tid);
+    int score(Gtid gtid) {
+        pid_t pid = gtid.tgid();
         absl::MutexLock lock(&mu_);
 
         auto it = pid_to_watts.find(pid);
@@ -133,19 +123,28 @@ public:
 
         double k = (this_watts - min_watts) / (max_watts - min_watts);
         int score = (int)((float)(EAS_ENERGY_SCORE_MAX - EAS_ENERGY_SCORE_MIN) * k) + EAS_ENERGY_SCORE_MIN;
-        
+
         return score;
     }
 
     void print_current_state() {
         absl::MutexLock lock(&mu_);
-        for (auto& [p, w] : pid_to_watts) {
-            std::cout << "pid: " << p 
-                      << "\twatts: " << w 
-                      << std::endl;
+        std::cout << "* pid (tids)" << std::endl;
+        for (auto& [pid, tids] : pid_to_tasks) {
+            std::cout << "\t" << pid << " (";
+            for (auto& tid : tids) {
+                std::cout << tid << ",";
+            }
+            std::cout << ")" << std::endl;
         }
-        std::cout << "min watts: " << min_watts << std::endl;
-        std::cout << "max watts: " << max_watts << std::endl;
+        std::cout << "* pid (watts)" << std::endl;
+        for (auto& [p, w] : pid_to_watts) {
+            std::cout << "\t" << p 
+                      << "(" << w 
+                      << ")" << std::endl;
+        }
+        std::cout << "* min watts: " << min_watts << std::endl;
+        std::cout << "* max watts: " << max_watts << std::endl;
         std::cout << "--------------------------------- " << std::endl << std::flush;
     }
 
@@ -157,6 +156,19 @@ private:
     std::unordered_map<pid_t, std::unordered_set<pid_t>> pid_to_tasks;
     double max_watts;
     double min_watts;
+
+    void update(pid_t pid, double consumption) {
+        // skip if we don't care about this pid
+        if (pid_to_tasks.find(pid) == pid_to_tasks.end()) return;
+        
+        // update the consumption
+        auto it = pid_to_watts.find(pid);
+        if (it == pid_to_watts.end()) {
+            pid_to_watts[pid] = consumption;
+        } else {
+            pid_to_watts[pid] = (1 - EAS_ENERGY_GAMMA) * pid_to_watts[pid] + EAS_ENERGY_GAMMA * consumption;
+        }
+    }
 };
 
 extern EnergyState energy_state;

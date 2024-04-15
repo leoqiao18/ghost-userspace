@@ -402,7 +402,7 @@ void EasScheduler::TaskNew(EasTask *task, const Message &msg) {
     // and MSG_TASK_WAKEUP showing up on the default channel.
   }
 
-  energy_state.add_task(task->gtid.tgid());
+  energy_state.add_task(task->gtid);
 }
 
 void EasScheduler::TaskRunnable(EasTask *task, const Message &msg) {
@@ -429,6 +429,8 @@ void EasScheduler::TaskRunnable(EasTask *task, const Message &msg) {
 // compiler raises safety analysis error.
 void EasScheduler::HandleTaskDone(EasTask *task, bool from_switchto)
     ABSL_NO_THREAD_SAFETY_ANALYSIS {
+  energy_state.remove_task(task->gtid);
+
   CpuState *cs = cpu_state_of(task);
   cs->run_queue.mu_.AssertHeld();
 
@@ -459,8 +461,6 @@ void EasScheduler::HandleTaskDone(EasTask *task, bool from_switchto)
                       "TaskDeparted/Dead cases were not exhaustive, got %s",
                       absl::FormatStreamed(EasTaskState::State(prev_state))));
   }
-
-  energy_state.remove_task(task->gtid.id());
 }
 
 void EasScheduler::TaskDeparted(EasTask *task, const Message &msg) {
@@ -875,7 +875,7 @@ void EasScheduler::EasSchedule(const Cpu &cpu, BarrierToken agent_barrier,
       //         = wall_runtime * 2^10 / (2^32 / precomputed_inverse_weight)
       //         = wall_runtime * precomputed_inverse_weight / 2^22
       uint64_t runtime = next->status_word.runtime() - before_runtime;
-      int energy_score = energy_state.score(next->gtid.id());
+      int energy_score = energy_state.score(next->gtid);
       uint32_t energy_inverse_weight = EasScheduler::kNiceToInverseWeight[energy_score - EasScheduler::kMinNice];
       next->vruntime += absl::Nanoseconds(static_cast<uint64_t>(
           static_cast<absl::uint128>(energy_inverse_weight) * static_cast<absl::uint128>(next->inverse_weight) * runtime >> 22));
