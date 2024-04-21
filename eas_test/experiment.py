@@ -7,13 +7,12 @@ import json
 
 
 def scaphandre():
-    cmd = "scaphandre --no-headers json -s 1"
+    cmd = "sudo scaphandre --no-header json -s 1 | jq -c"
     # cmd is a command that, when run, will write a series of JSON objects to stdout. Don't assume that each JSON object is on a single line. I want to parse each JSON object and print it to the console
-    output = subprocess.check_output(cmd, shell=True, text=True)
-    json_objects = re.findall(r"{.*?}", output, re.DOTALL)
-    for json_object in json_objects:
-        data = json.loads(json_object)
-        print(data)
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    for line in p.stdout:
+        j = json.loads(line)
+        print(j)
 
 
 def register_to_enclave(pid):

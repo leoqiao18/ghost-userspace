@@ -21,7 +21,14 @@ def handle_sigint(procs):
 
 
 def main():
-    cmds = ["./loop.py", "./sleep.py"]
+    cmds = [
+        # ["./sleep.py", "0.0001"],
+        # ["./sleep.py", "0.005"],
+        "./add.py",
+        # "./mult.py",
+        "./print.py",
+        # "./read_file.py",
+    ]
 
     procs = []
     signal.signal(signal.SIGINT, handle_sigint(procs))
