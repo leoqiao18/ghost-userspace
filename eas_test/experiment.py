@@ -8,15 +8,19 @@ import json
 
 def scaphandre():
     cmd = "scaphandre --no-headers json -s 1"
-    # run cmd and get stdout as file object
+    # cmd is a command that, when run, will write a series of JSON objects to stdout
+    # I want to parse each JSON object and print it to the console
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-    # parse the content of p as a series of json objects
-    for line in p.stdout:
+    while True:
+        line = p.stdout.readline()
+        if not line:
+            break
         try:
             data = json.loads(line)
-            print(data)
-        except json.JSONDecodeError as e:
-            print(f"Error decoding json: {e}")
+            print(json.dumps(data, indent=4))
+        except json.JSONDecodeError:
+            print("Error decoding JSON object")
+            continue
 
 
 def register_to_enclave(pid):
