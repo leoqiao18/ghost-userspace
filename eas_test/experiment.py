@@ -1,18 +1,32 @@
 #!/usr/bin/env python3
+from collections import defaultdict
 import subprocess
 import re
 import sys
 import signal
 import json
 
+INTERVAL = 1
+pid_to_energy = defaultdict(lambda: 0)
 
-def scaphandre():
-    cmd = "sudo scaphandre --no-header json -s 1 | jq -c"
-    # cmd is a command that, when run, will write a series of JSON objects to stdout. Don't assume that each JSON object is on a single line. I want to parse each JSON object and print it to the console
+
+def scaphandre(pids):
+    cmd = f"sudo scaphandre --no-header json -s {INTERVAL} | jq -c"
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     for line in p.stdout:
-        j = json.loads(line)
-        print(j)
+        try:
+            j = json.loads(line)
+            for c in j["consumers"]:
+                pid, consumption = c["pid"], c["consumption"]
+                if pid in pids:
+                    pid_to_energy[pid] += consumption * INTERVAL
+
+            print("Energy consumption (microjoules):")
+            for pid in pids:
+                print(f"{pid} -> {pid_to_energy[pid]}")
+
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON: {e}")
 
 
 def register_to_enclave(pid):
@@ -46,9 +60,10 @@ def main():
         register_to_enclave(p.pid)
         print(f"Registered pid={p.pid} ({cmd})")
 
+    scaphandre([p.pid for p in procs])
+
     signal.pause()
 
 
 if __name__ == "__main__":
-    # main()
-    scaphandre()
+    main()
