@@ -8,12 +8,13 @@ import json
 
 INTERVAL = 1
 pid_to_energy = defaultdict(lambda: 0)
+scaphandre_p = None
 
 
 def scaphandre(pids):
     cmd = f"sudo scaphandre --no-header json -s {INTERVAL} | jq -c"
-    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-    for line in p.stdout:
+    global scaphandre_p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    for line in scaphandre_p.stdout:
         try:
             j = json.loads(line)
             for c in j["consumers"]:
@@ -42,6 +43,8 @@ def register_to_enclave(pid):
 
 def handle_sigint(procs):
     def _handle_sigint(sig, frame):
+        if scaphandre_p:
+            scaphandre_p.kill()
         for p in procs:
             p.kill()
 
@@ -49,7 +52,10 @@ def handle_sigint(procs):
 
 
 def main():
-    cmds = ["./loop.py", "./sleep.py"]
+    cmds = [
+        ["stress", "-c", "1"],
+        ["stress", "-i", "1"],
+        ]
 
     procs = []
     signal.signal(signal.SIGINT, handle_sigint(procs))
