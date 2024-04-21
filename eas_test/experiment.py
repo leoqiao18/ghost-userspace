@@ -8,19 +8,12 @@ import json
 
 def scaphandre():
     cmd = "scaphandre --no-headers json -s 1"
-    # cmd is a command that, when run, will write a series of JSON objects to stdout
-    # I want to parse each JSON object and print it to the console
-    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-    while True:
-        line = p.stdout.readline()
-        if not line:
-            break
-        try:
-            data = json.loads(line)
-            print(json.dumps(data, indent=4))
-        except json.JSONDecodeError:
-            print("Error decoding JSON object")
-            continue
+    # cmd is a command that, when run, will write a series of JSON objects to stdout. Don't assume that each JSON object is on a single line. I want to parse each JSON object and print it to the console
+    output = subprocess.check_output(cmd, shell=True, text=True)
+    json_objects = re.findall(r"{.*?}", output, re.DOTALL)
+    for json_object in json_objects:
+        data = json.loads(json_object)
+        print(data)
 
 
 def register_to_enclave(pid):
