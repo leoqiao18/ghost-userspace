@@ -12,7 +12,7 @@ scaphandre_p = None
 
 
 def scaphandre(pids):
-    cmd = f"sudo scaphandre --no-header json -s {INTERVAL} | jq -c"
+    cmd = f"sudo scaphandre --no-header json -s {INTERVAL} --max-top-consumers 50 | jq -c"
     global scaphandre_p 
     scaphandre_p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     for line in scaphandre_p.stdout:
@@ -55,14 +55,33 @@ def handle_sigint(procs):
 def main():
     cmds = [
         "./io.py",
+        "./io.py",
+        "./io.py",
+        "./io.py",
+        "./io.py",
+        "./io.py",
+        "./io.py",
+        "./io.py",
+        "./io.py",
+        "./io.py",
+        "./io.py",
+        "./io.py",
+        "./io.py",
+        "./io.py",
+        "./io.py",
+        "./cpu.py",
+        "./cpu.py",
+        "./cpu.py",
+        "./cpu.py",
         "./cpu.py"
         ]
 
     procs = []
     signal.signal(signal.SIGINT, handle_sigint(procs))
+    signal.signal(signal.SIGTERM, handle_sigint(procs))
 
     for cmd in cmds:
-        p = subprocess.Popen(cmd)
+        p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         procs.append(p)
         register_to_enclave(p.pid)
         print(f"Registered pid={p.pid} ({cmd})")

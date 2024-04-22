@@ -878,7 +878,8 @@ void EasScheduler::EasSchedule(const Cpu &cpu, BarrierToken agent_barrier,
       int energy_score = energy_state.score(next->gtid);
       uint32_t energy_inverse_weight = EasScheduler::kNiceToInverseWeight[energy_score - EasScheduler::kMinNice];
       next->vruntime += absl::Nanoseconds(static_cast<uint64_t>(
-          static_cast<absl::uint128>(energy_inverse_weight) * static_cast<absl::uint128>(next->inverse_weight) * runtime >> 22));
+          // static_cast<absl::uint128>(energy_inverse_weight) *
+        static_cast<absl::uint128>(next->inverse_weight) * runtime >> 22));
     } else {
       GHOST_DPRINT(3, stderr, "EasSchedule: commit failed (state=%d)",
                    req->state());

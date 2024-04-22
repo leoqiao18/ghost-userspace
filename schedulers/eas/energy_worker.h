@@ -7,10 +7,11 @@
 #include "lib/ghost.h"
 
 #include <nlohmann/json.hpp>
+#include <unordered_map>
 
 #define EAS_ENERGY_GAMMA 0.5
-#define EAS_ENERGY_SCORE_MAX 15
-#define EAS_ENERGY_SCORE_MIN -16
+#define EAS_ENERGY_SCORE_MAX 3
+#define EAS_ENERGY_SCORE_MIN -3
 #define EAS_ENERGY_SCORE_DEFAULT 0
 
 namespace ghost {
@@ -27,8 +28,20 @@ public:
     void update(nlohmann::json consumers) {
         absl::MutexLock lock(&mu_);
 
+        std::unordered_map<pid_t, double> pid_to_consumption;
+
         for (auto& c : consumers) {
-            update(c["pid"].get<int>(), c["consumption"].get<double>());
+            pid_to_consumption[c["pid"].get<int>()] = c["consumption"].get<double>();
+        }
+
+        for (auto& [pid, _] : pid_to_watts) {
+            if (pid_to_consumption.find(pid) == pid_to_consumption.end()) {
+                update(pid, 0);
+            }
+        }
+
+        for (auto& [pid, consumption] : pid_to_consumption) {
+            update(pid, consumption);
         }
 
         if (pid_to_watts.size() == 0) {
@@ -106,9 +119,7 @@ public:
         }
     }
 
-    int score(Gtid gtid) {
-        pid_t pid = gtid.tgid();
-        absl::MutexLock lock(&mu_);
+    int score(pid_t pid) {
 
         auto it = pid_to_watts.find(pid);
         if (it == pid_to_watts.end()) {
@@ -127,11 +138,17 @@ public:
         return score;
     }
 
+    int score(Gtid gtid) {
+        absl::MutexLock lock(&mu_);
+        pid_t pid = gtid.tgid();
+        return score(pid);
+    }
+
     void print_current_state() {
         absl::MutexLock lock(&mu_);
         std::cout << "* pid (tids)" << std::endl;
         for (auto& [pid, tids] : pid_to_tasks) {
-            std::cout << "\t" << pid << " (";
+            std::cout << "\t" << pid << " (score: " << score((pid_t) pid) << ") (";
             for (auto& tid : tids) {
                 std::cout << tid << ",";
             }
