@@ -10,8 +10,8 @@
 #include <unordered_map>
 
 #define EAS_ENERGY_GAMMA 0.5
-#define EAS_ENERGY_SCORE_MAX 3
-#define EAS_ENERGY_SCORE_MIN -3
+#define EAS_ENERGY_SCORE_MAX 10
+#define EAS_ENERGY_SCORE_MIN -10
 #define EAS_ENERGY_SCORE_DEFAULT 0
 
 namespace ghost {

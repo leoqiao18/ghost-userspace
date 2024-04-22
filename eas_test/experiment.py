@@ -54,25 +54,10 @@ def handle_sigint(procs):
 
 def main():
     cmds = [
-        "./io.py",
-        "./io.py",
-        "./io.py",
-        "./io.py",
-        "./io.py",
-        "./io.py",
-        "./io.py",
-        "./io.py",
-        "./io.py",
-        "./io.py",
-        "./io.py",
-        "./io.py",
-        "./io.py",
-        "./io.py",
-        "./io.py",
-        "./cpu.py",
-        "./cpu.py",
-        "./cpu.py",
-        "./cpu.py",
+        ["python3", "graphics.py"],
+        ["python3", "graphics.py"],
+        ["python3", "io.py"],
+        ["python3", "io.py"],
         ]
 
     procs = []
