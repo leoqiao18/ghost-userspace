@@ -7,16 +7,14 @@ LD=ld
 LDFLAGS=-m elf_i386
 
 # Source and object files
-SRC=mult.asm \
-	mem.asm \
-	no-op.asm
-OBJ=$(SRC:.asm=.o)
-EXEC=infinite_nop
+TARGETS=mult \
+	mem \
+	no-op
 
 # Default target
-all: $(EXEC)
+all: $(TARGETS)
 
-$(EXEC): $(OBJ)
+$(TARGETS): %.o
 	$(LD) $(LDFLAGS) -o $@ $^
 
 # Rule to build object files
@@ -25,7 +23,7 @@ $(EXEC): $(OBJ)
 
 # Clean up
 clean:
-	rm -f $(OBJ) $(EXEC)
+	rm -f $(OBJS) $(TARGETS)
 
 # Phony targets
 .PHONY: all clean
