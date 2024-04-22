@@ -882,7 +882,7 @@ void EasScheduler::EasSchedule(const Cpu &cpu, BarrierToken agent_barrier,
       // std::cout << "-------------------------" << std::endl;
       // std::cout << next->gtid.tgid() << std::endl;
       // std::cout << "cfs: " << cfs_vruntime_delta << std::endl;
-      // std::cout << "eas :" << eas_vruntime_delta << std::endl;
+      std::cout << "eas :" << eas_vruntime_delta << std::endl;
       
       // std::cout << "vruntime (pre): " << next->vruntime << std::endl;
       next->vruntime += absl::Nanoseconds(static_cast<uint64_t>(eas_vruntime_delta));

@@ -18,7 +18,5 @@ _start:
     ; Store the result back into memory
     movups [result], xmm0  ; Store the result into the result array
 
-    ; Exit the program
-    mov eax, 60        ; Exit syscall number
-    xor edi, edi       ; Exit status 0
-    syscall            ; Invoke syscall
+    jmp _start
+

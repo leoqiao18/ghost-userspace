@@ -830,6 +830,9 @@ void CfsScheduler::CfsSchedule(const Cpu& cpu, BarrierToken agent_barrier,
     DPRINT_CFS(3, absl::StrFormat("[%s]: Picked via PickNextTask",
                                   next->gtid.describe()));
 
+    std::cout << "min granularity: " << this->min_granularity_ << std::endl;
+    printf("CFS next: %d\n", next->gtid.tgid());
+
     req->Open({
         .target = next->gtid,
         .target_barrier = next->seqnum,
@@ -1073,6 +1076,10 @@ void CfsRq::PutPrevTask(CfsTask* task) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
 CfsTask* CfsRq::PickNextTask(CfsTask* prev, TaskAllocator<CfsTask>* allocator,
                              CpuState* cs) {
   // Check if we can just keep running the current task.
+  // std::cout << (prev == NULL)  << std::endl;
+  // if (prev) {
+  //   std::cout << (prev->task_state.IsRunning()) << std::endl;
+  // }
   if (prev && prev->task_state.IsRunning() && !cs->preempt_curr) {
     return prev;
   }
