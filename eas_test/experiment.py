@@ -54,10 +54,14 @@ def handle_sigint(procs):
 
 def main():
     cmds = [
-        ["python3", "graphics.py"],
-        ["python3", "graphics.py"],
-        ["python3", "io.py"],
-        ["python3", "io.py"],
+        # ["python3", "graphics.py"],
+        # ["python3", "graphics.py"],
+        # ["python3", "io.py"],
+        # ["python3", "io.py"],
+        "./no-op",
+        # "./mem",
+        # "./mult",
+        ["python3", "cpu.py"]
         ]
 
     procs = []

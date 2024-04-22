@@ -14,7 +14,7 @@ TARGETS=mult \
 # Default target
 all: $(TARGETS)
 
-$(TARGETS): %.o
+$(TARGETS): %:%.o
 	$(LD) $(LDFLAGS) -o $@ $^
 
 # Rule to build object files
