@@ -73,7 +73,6 @@ def main():
         "./cpu.py",
         "./cpu.py",
         "./cpu.py",
-        "./cpu.py"
         ]
 
     procs = []
