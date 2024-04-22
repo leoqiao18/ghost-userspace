@@ -9,7 +9,8 @@ LDFLAGS=-m elf_i386
 # Source and object files
 TARGETS=mult \
 	mem \
-	no-op
+	no-op \
+	simd
 
 # Default target
 all: $(TARGETS)
