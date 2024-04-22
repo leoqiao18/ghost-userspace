@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
 
+import math
+
 while True:
-    1 + 1
+    x = math.sqrt(2)

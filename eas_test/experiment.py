@@ -13,7 +13,8 @@ scaphandre_p = None
 
 def scaphandre(pids):
     cmd = f"sudo scaphandre --no-header json -s {INTERVAL} | jq -c"
-    global scaphandre_p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    global scaphandre_p 
+    scaphandre_p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     for line in scaphandre_p.stdout:
         try:
             j = json.loads(line)
@@ -53,8 +54,8 @@ def handle_sigint(procs):
 
 def main():
     cmds = [
-        ["stress", "-c", "1"],
-        ["stress", "-i", "1"],
+        "./io.py",
+        "./cpu.py"
         ]
 
     procs = []
