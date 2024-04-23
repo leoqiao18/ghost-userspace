@@ -11,7 +11,7 @@ scaphandre_p = None
 
 
 def scaphandre(pids):
-    cmd = f"sudo scaphandre --no-header json -s 0 --step-nano 10 --max-top-consumers 10 | jq -c"
+    cmd = f"sudo scaphandre --no-header json -s 0 --step-nano 10000 --max-top-consumers 50 | jq -c"
     global scaphandre_p 
     scaphandre_p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     for line in scaphandre_p.stdout:
@@ -58,9 +58,27 @@ def main():
         # ["python3", "io.py"],
         # ["python3", "io.py"],
         "./no-op",
+        "./no-op",
+        "./no-op",
+        "./no-op",
+        "./no-op",
+        "./no-op",
+        "./no-op",
+        "./no-op",
+        "./no-op",
+        "./no-op",
         # "./no-op",
         # "./mem",
         # "./mult",
+        ["python3", "cpu.py"],
+        ["python3", "cpu.py"],
+        ["python3", "cpu.py"],
+        ["python3", "cpu.py"],
+        ["python3", "cpu.py"],
+        ["python3", "cpu.py"],
+        ["python3", "cpu.py"],
+        ["python3", "cpu.py"],
+        ["python3", "cpu.py"],
         ["python3", "cpu.py"],
         # "./simd",
         ]

@@ -832,6 +832,7 @@ void CfsScheduler::CfsSchedule(const Cpu& cpu, BarrierToken agent_barrier,
 
     std::cout << "min granularity: " << this->min_granularity_ << std::endl;
     printf("CFS next: %d\n", next->gtid.tgid());
+    printf("CFS next cpu: %d\n", next->cpu);
 
     req->Open({
         .target = next->gtid,
