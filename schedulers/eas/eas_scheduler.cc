@@ -180,6 +180,11 @@ Cpu EasScheduler::SelectTaskRq(EasTask *task) {
   // stored for this task.
   CpuList eligible_cpus = cpus();
   eligible_cpus.Intersection(task->cpu_affinity);
+
+  CpuList agent_cpu_list = MachineTopology()->EmptyCpuList();
+  agent_cpu_list.Set(MyCpu());
+  eligible_cpus.Subtract(agent_cpu_list);
+
   if (eligible_cpus.Empty()) {
     DPRINT_EAS(3, absl::StrFormat("[%s]: No CPUs eligible for this task.",
                                   task->gtid.describe()));
@@ -876,20 +881,28 @@ void EasScheduler::EasSchedule(const Cpu &cpu, BarrierToken agent_barrier,
       //         = wall_runtime * precomputed_inverse_weight / 2^22
       uint64_t runtime = next->status_word.runtime() - before_runtime;
       int energy_score = energy_state.score(next->gtid);
-      uint64_t energy_inverse_weight = EasScheduler::kNiceToInverseWeight[energy_score - EasScheduler::kMinNice];
-      absl::uint128 cfs_vruntime_delta = static_cast<absl::uint128>(next->inverse_weight) * runtime >> 22;
-      absl::uint128 eas_vruntime_delta = static_cast<absl::uint128>(energy_inverse_weight) * cfs_vruntime_delta >> 22;
+      uint64_t energy_inverse_weight =
+          EasScheduler::kNiceToInverseWeight[energy_score -
+                                             EasScheduler::kMinNice];
+      absl::uint128 cfs_vruntime_delta =
+          static_cast<absl::uint128>(next->inverse_weight) * runtime >> 22;
+      absl::uint128 eas_vruntime_delta =
+          static_cast<absl::uint128>(energy_inverse_weight) *
+              cfs_vruntime_delta >>
+          22;
       // std::cout << "-------------------------" << std::endl;
       // std::cout << next->gtid.tgid() << std::endl;
       // std::cout << "cfs: " << cfs_vruntime_delta << std::endl;
       std::cout << "eas :" << eas_vruntime_delta << std::endl;
-      
+
       // std::cout << "vruntime (pre): " << next->vruntime << std::endl;
-      next->vruntime += absl::Nanoseconds(static_cast<uint64_t>(eas_vruntime_delta));
-      
-      // std::cout << "v delta:" << absl::Nanoseconds(static_cast<uint64_t>(eas_vruntime_delta)) << std::endl;
-      // std::cout << "vruntime (post): " << next->vruntime << std::endl;
-      // std::cout << std::flush;
+      next->vruntime +=
+          absl::Nanoseconds(static_cast<uint64_t>(eas_vruntime_delta));
+
+      // std::cout << "v delta:" <<
+      // absl::Nanoseconds(static_cast<uint64_t>(eas_vruntime_delta)) <<
+      // std::endl; std::cout << "vruntime (post): " << next->vruntime <<
+      // std::endl; std::cout << std::flush;
     } else {
       GHOST_DPRINT(3, stderr, "EasSchedule: commit failed (state=%d)",
                    req->state());
