@@ -180,10 +180,7 @@ Cpu EasScheduler::SelectTaskRq(EasTask *task) {
   // stored for this task.
   CpuList eligible_cpus = cpus();
   eligible_cpus.Intersection(task->cpu_affinity);
-
-  CpuList agent_cpu_list = MachineTopology()->EmptyCpuList();
-  agent_cpu_list.Set(MyCpu());
-  eligible_cpus.Subtract(agent_cpu_list);
+  eligible_cpus.Clear(topology()->cpu(MyCpu()));
 
   if (eligible_cpus.Empty()) {
     DPRINT_EAS(3, absl::StrFormat("[%s]: No CPUs eligible for this task.",
@@ -203,17 +200,18 @@ Cpu EasScheduler::SelectTaskRq(EasTask *task) {
     return false;
   };
 
+
   // Check if this cpu is empty.
   // NOTE: placing on this cpu is safe as it is in cpus() by virtue of
   // us recieving a message on its queue
   const Cpu this_cpu = topology()->cpu(MyCpu());
   CpuState *cs = cpu_state(this_cpu);
-  {
-    absl::MutexLock l(&cs->run_queue.mu_);
-    if (update_min(cs->run_queue.Size(), this_cpu)) {
-      return this_cpu;
-    }
-  }
+  // {
+  //   absl::MutexLock l(&cs->run_queue.mu_);
+  //   if (update_min(cs->run_queue.Size(), this_cpu)) {
+  //     return this_cpu;
+  //   }
+  // }
 
   // Check our prev cpu and its siblings
   // NOTE: placing on this cpu is safe as it is in cpus() by virtue of
@@ -893,7 +891,7 @@ void EasScheduler::EasSchedule(const Cpu &cpu, BarrierToken agent_barrier,
       // std::cout << "-------------------------" << std::endl;
       // std::cout << next->gtid.tgid() << std::endl;
       // std::cout << "cfs: " << cfs_vruntime_delta << std::endl;
-      std::cout << "eas :" << eas_vruntime_delta << std::endl;
+      // std::cout << "eas :" << eas_vruntime_delta << std::endl;
 
       // std::cout << "vruntime (pre): " << next->vruntime << std::endl;
       next->vruntime +=
