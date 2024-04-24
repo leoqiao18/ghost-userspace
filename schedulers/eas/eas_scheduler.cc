@@ -554,33 +554,33 @@ void EasScheduler::TaskBlocked(EasTask *task, const Message &msg) {
 }
 
 void EasScheduler::TaskPreempted(EasTask *task, const Message &msg) {
-  const ghost_msg_payload_task_preempt *payload =
-      static_cast<const ghost_msg_payload_task_preempt *>(msg.payload());
-  Cpu cpu = topology()->cpu(MyCpu());
-  CpuState *cs = cpu_state(cpu);
-  PrintDebugTaskMessage("TaskPreempted", cs, task);
-  cs->run_queue.mu_.AssertHeld();
+  // const ghost_msg_payload_task_preempt *payload =
+  //     static_cast<const ghost_msg_payload_task_preempt *>(msg.payload());
+  // Cpu cpu = topology()->cpu(MyCpu());
+  // CpuState *cs = cpu_state(cpu);
+  // PrintDebugTaskMessage("TaskPreempted", cs, task);
+  // cs->run_queue.mu_.AssertHeld();
 
-  // If this task is not from a switchto chain, it should be the current task on
-  // this CPU.
-  if (!payload->from_switchto) {
-    CHECK_EQ(cs->current, task);
-  }
+  // // If this task is not from a switchto chain, it should be the current task on
+  // // this CPU.
+  // if (!payload->from_switchto) {
+  //   CHECK_EQ(cs->current, task);
+  // }
 
-  // The task should be in kDequeued state because only a currently running
-  // task can be preempted.
-  CHECK(task->task_state.OnRqDequeued());
+  // // The task should be in kDequeued state because only a currently running
+  // // task can be preempted.
+  // CHECK(task->task_state.OnRqDequeued());
 
-  // Updates the task state accordingly. This is safe because this task should
-  // be associated with this CPU's agent and protected by this CPU's RQ lock.
-  PutPrevTask(task);
+  // // Updates the task state accordingly. This is safe because this task should
+  // // be associated with this CPU's agent and protected by this CPU's RQ lock.
+  // PutPrevTask(task);
 
-  // This task was the last task in a switchto chain on a remote CPU. We should
-  // ping the remote CPU to schedule a new task.
-  if (payload->cpu != cpu.id()) {
-    CHECK(payload->from_switchto);
-    PingCpu(topology()->cpu(payload->cpu));
-  }
+  // // This task was the last task in a switchto chain on a remote CPU. We should
+  // // ping the remote CPU to schedule a new task.
+  // if (payload->cpu != cpu.id()) {
+  //   CHECK(payload->from_switchto);
+  //   PingCpu(topology()->cpu(payload->cpu));
+  // }
 }
 
 void EasScheduler::TaskSwitchto(EasTask *task, const Message &msg) {
@@ -878,16 +878,16 @@ void EasScheduler::EasSchedule(const Cpu &cpu, BarrierToken agent_barrier,
       //         = wall_runtime * 2^10 / (2^32 / precomputed_inverse_weight)
       //         = wall_runtime * precomputed_inverse_weight / 2^22
       uint64_t runtime = next->status_word.runtime() - before_runtime;
-      int energy_score = energy_state.score(next->gtid);
-      uint64_t energy_inverse_weight =
-          EasScheduler::kNiceToInverseWeight[energy_score -
-                                             EasScheduler::kMinNice];
+      double energy_score = energy_state.score(next->gtid);
+      // uint64_t energy_inverse_weight =
+      //     EasScheduler::kNiceToInverseWeight[energy_score -
+      //                                        EasScheduler::kMinNice];
       absl::uint128 cfs_vruntime_delta =
           static_cast<absl::uint128>(next->inverse_weight) * runtime >> 22;
-      absl::uint128 eas_vruntime_delta =
-          static_cast<absl::uint128>(energy_inverse_weight) *
-              cfs_vruntime_delta >>
-          22;
+      absl::uint128 eas_vruntime_delta = (absl::uint128) (energy_score * (double) cfs_vruntime_delta);
+          // static_cast<absl::uint128>(energy_inverse_weight) *
+          //     cfs_vruntime_delta >>
+          // 22;
       // std::cout << "-------------------------" << std::endl;
       // std::cout << next->gtid.tgid() << std::endl;
       // std::cout << "cfs: " << cfs_vruntime_delta << std::endl;

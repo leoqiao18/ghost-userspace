@@ -119,26 +119,30 @@ public:
         }
     }
 
-    int score(pid_t pid) {
+    double score(pid_t pid) {
 
         auto it = pid_to_watts.find(pid);
         if (it == pid_to_watts.end()) {
-            return EAS_ENERGY_SCORE_DEFAULT;
+            return 1;
         }
 
         double this_watts = it->second;
 
-        if ((max_watts - min_watts) == 0) {
-            return EAS_ENERGY_SCORE_DEFAULT;
+        // if ((max_watts - min_watts) == 0) {
+        //     return EAS_ENERGY_SCORE_DEFAULT;
+        // }
+
+        // double k = (this_watts - min_watts) / (max_watts - min_watts);
+        // int score = (int)((float)(EAS_ENERGY_SCORE_MAX - EAS_ENERGY_SCORE_MIN) * k) + EAS_ENERGY_SCORE_MIN;
+        if (min_watts == 0) {
+            return 1.0;
         }
-
-        double k = (this_watts - min_watts) / (max_watts - min_watts);
-        int score = (int)((float)(EAS_ENERGY_SCORE_MAX - EAS_ENERGY_SCORE_MIN) * k) + EAS_ENERGY_SCORE_MIN;
-
+        double score = this_watts / min_watts;
+        score = (score - 1) * 1 + 1;
         return score;
     }
 
-    int score(Gtid gtid) {
+    double score(Gtid gtid) {
         absl::MutexLock lock(&mu_);
         pid_t pid = gtid.tgid();
         return score(pid);

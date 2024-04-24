@@ -174,15 +174,18 @@ Cpu CfsScheduler::SelectTaskRq(CfsTask* task) {
 
   uint64_t min_load = UINT64_MAX;
   Cpu min_load_cpu = topology()->cpu(MyCpu());
+  // printf("MYCPU %d\n", min_load_cpu.id());
 
   // Get the intersection of the CPUs in this enclave and the CPU affinity
   // stored for this task.
   CpuList eligible_cpus = cpus();
+  // std::cout << "CPU AFFINITY: " << task->cpu_affinity.CpuMaskStr() << std::endl;
   eligible_cpus.Intersection(task->cpu_affinity);
   eligible_cpus.Clear(topology()->cpu(MyCpu()));
   if (eligible_cpus.Empty()) {
     DPRINT_CFS(3, absl::StrFormat("[%s]: No CPUs eligible for this task.",
                                   task->gtid.describe()));
+    // printf("No CPU eligible\n");
   }
 
   // Updates the min cpu load variables and returns true if empty.
@@ -270,7 +273,6 @@ void CfsScheduler::StartMigrateCurrTask() {
   CfsTask* task = cs->current;
   CHECK_EQ(task->cpu, my_cpu);
 
-  printf("null2\n");
   cs->current = nullptr;
   task->task_state.SetState(CfsTaskState::State::kRunnable);
   StartMigrateTask(task);
@@ -412,7 +414,6 @@ void CfsScheduler::TaskRunnable(CfsTask* task, const Message& msg) {
   // PickNextTask. Otherwise, use the normal wakeup logic.
   if (task->cpu >= 0) {
     if (cs->current == task) {
-      printf("null1\n");
       cs->current = nullptr;
     }
   }
@@ -490,7 +491,7 @@ void CfsScheduler::TaskYield(CfsTask* task, const Message& msg) {
   Cpu cpu = topology()->cpu(MyCpu());
   CpuState* cs = cpu_state(cpu);
   PrintDebugTaskMessage("TaskYield", cs, task);
-  printf("TaskYield\n");
+  // printf("TaskYield\n");
   cs->run_queue.mu_.AssertHeld();
 
   // If this task is not from a switchto chain, it should be the current task on
@@ -532,7 +533,6 @@ void CfsScheduler::TaskBlocked(CfsTask* task, const Message& msg) {
   // Updates the task state accordingly. This is safe because this task should
   // be associated with this CPU's agent and protected by this CPU's RQ lock.
   if (cs->current == task) {
-    printf("null3\n");
     cs->current = nullptr;
   }
 
@@ -551,34 +551,34 @@ void CfsScheduler::TaskBlocked(CfsTask* task, const Message& msg) {
 }
 
 void CfsScheduler::TaskPreempted(CfsTask* task, const Message& msg) {
-  const ghost_msg_payload_task_preempt* payload =
-      static_cast<const ghost_msg_payload_task_preempt*>(msg.payload());
-  Cpu cpu = topology()->cpu(MyCpu());
-  CpuState* cs = cpu_state(cpu);
-  PrintDebugTaskMessage("TaskPreempted", cs, task);
-  printf("TaskPreempted\n");
-  cs->run_queue.mu_.AssertHeld();
+  // const ghost_msg_payload_task_preempt* payload =
+  //     static_cast<const ghost_msg_payload_task_preempt*>(msg.payload());
+  // Cpu cpu = topology()->cpu(MyCpu());
+  // CpuState* cs = cpu_state(cpu);
+  // PrintDebugTaskMessage("TaskPreempted", cs, task);
+  // // printf("TaskPreempted");
+  // cs->run_queue.mu_.AssertHeld();
 
-  // If this task is not from a switchto chain, it should be the current task on
-  // this CPU.
-  if (!payload->from_switchto) {
-    CHECK_EQ(cs->current, task);
-  }
+  // // If this task is not from a switchto chain, it should be the current task on
+  // // this CPU.
+  // if (!payload->from_switchto) {
+  //   CHECK_EQ(cs->current, task);
+  // }
 
-  // The task should be in kDequeued state because only a currently running
-  // task can be preempted.
-  CHECK(task->task_state.OnRqDequeued());
+  // // The task should be in kDequeued state because only a currently running
+  // // task can be preempted.
+  // CHECK(task->task_state.OnRqDequeued());
 
-  // Updates the task state accordingly. This is safe because this task should
-  // be associated with this CPU's agent and protected by this CPU's RQ lock.
-  PutPrevTask(task);
+  // // Updates the task state accordingly. This is safe because this task should
+  // // be associated with this CPU's agent and protected by this CPU's RQ lock.
+  // PutPrevTask(task);
 
-  // This task was the last task in a switchto chain on a remote CPU. We should
-  // ping the remote CPU to schedule a new task.
-  if (payload->cpu != cpu.id()) {
-    CHECK(payload->from_switchto);
-    PingCpu(topology()->cpu(payload->cpu));
-  }
+  // // This task was the last task in a switchto chain on a remote CPU. We should
+  // // ping the remote CPU to schedule a new task.
+  // if (payload->cpu != cpu.id()) {
+  //   CHECK(payload->from_switchto);
+  //   PingCpu(topology()->cpu(payload->cpu));
+  // }
 }
 
 void CfsScheduler::TaskSwitchto(CfsTask* task, const Message& msg) {
@@ -591,7 +591,6 @@ void CfsScheduler::TaskSwitchto(CfsTask* task, const Message& msg) {
   // No need to update OnRq state to kDequeued because the task should be on
   // CPU and therefore in kDequeued state.
   CHECK(task->task_state.OnRqDequeued());
-  printf("null4\n");
   cs->current = nullptr;
 }
 
@@ -623,7 +622,6 @@ void CfsScheduler::PutPrevTask(CfsTask* task) {
 
   // If this task is currently running, kick it off-cpu.
   if (cs->current == task) {
-    printf("null5\n");
     cs->current = nullptr;
   }
 
@@ -777,6 +775,11 @@ void CfsScheduler::CfsSchedule(const Cpu& cpu, BarrierToken agent_barrier,
   CpuState* cs = cpu_state(cpu);
 
   CfsTask* prev = cs->current;
+  static int prev_n = 0;
+  if (prev == NULL) {
+    std::cout << "COUNT " << prev_n << std::endl << std::flush;
+    prev_n++;
+  }
 
   if (prio_boost) {
     // If we are currently running a task, we need to put it back onto the
@@ -807,7 +810,6 @@ void CfsScheduler::CfsSchedule(const Cpu& cpu, BarrierToken agent_barrier,
 
       cs->preempt_curr = false;
       cs->current = nullptr;
-      printf("null6\n");
       cs->run_queue.UpdateMinVruntime(cs);
     }
     // If we are prio_boost'ed, then we are temporarily running at a higher
@@ -1087,9 +1089,9 @@ CfsTask* CfsRq::PickNextTask(CfsTask* prev, TaskAllocator<CfsTask>* allocator,
                              CpuState* cs) {
   // Check if we can just keep running the current task.
   // std::cout << (prev == NULL)  << std::endl;
-  if (prev != NULL) {
-    std::cout << (prev->task_state.IsRunning()) << std::endl;
-  }
+  // if (prev != NULL) {
+  //   std::cout << (prev->task_state.IsRunning()) << std::endl;
+  // }
   if (prev && prev->task_state.IsRunning() && !cs->preempt_curr) {
     return prev;
   }
@@ -1182,7 +1184,6 @@ void CfsRq::UpdateMinVruntime(CpuState* cs) {
     if (curr->task_state.IsRunnable() || curr->task_state.IsRunning()) {
       vruntime = curr->vruntime;
     } else {
-      printf("null7\n");
       curr = nullptr;
     }
   }

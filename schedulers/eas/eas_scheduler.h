@@ -692,7 +692,7 @@ class FullEasAgent : public FullAgent<EnclaveType> {
     this->enclave_.Ready();
 
     auto t = std::thread([]() {
-        FILE *pipe = popen("scaphandre --no-header json -s 1 --max-top-consumers 50", "r");
+        FILE *pipe = popen("./eas_test/scaphandre_wrapper.py", "r");
         if (!pipe) {
             std::cerr << "Error: Failed to open pipe\n";
             return (void *) 1;

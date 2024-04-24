@@ -2,25 +2,37 @@
 
 # Compiler and linker configurations
 AS=nasm
-ASFLAGS=-f elf32
+ASFLAGS=-f elf64
 LD=ld
-LDFLAGS=-m elf_i386
+LDFLAGS=
+CXX_COMPILER=g++
+CXX_FLAGS=-Wall
 
 # Source and object files
-TARGETS=mult \
+ASM_TARGETS=mult \
 	mem \
 	no-op \
 	simd
 
+CXX_TARGETS=thread_io \
+	    large_mem
+
+TARGETS=$(ASM_TARGETS) $(CXX_TARGETS)
+
 # Default target
 all: $(TARGETS)
 
-$(TARGETS): %:%.o
+$(ASM_TARGETS): %:%.o
 	$(LD) $(LDFLAGS) -o $@ $^
-
+	
 # Rule to build object files
 %.o: %.asm
 	$(AS) $(ASFLAGS) -o $@ $<
+
+# C++ executable
+$(CXX_TARGETS): %:%.cc
+	$(CXX_COMPILER) $(CXX_FLAGS) -o $@ $^ -lpthread
+
 
 # Clean up
 clean:
