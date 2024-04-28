@@ -542,6 +542,27 @@ cc_test(
 )
 
 cc_binary(
+    name = "agent_eas_bpf",
+    srcs = [
+        "schedulers/cfs_bpf/agent_eas.cc",
+    ],
+    copts = compiler_flags,
+    deps = [
+        # ":agent",
+        # ":cfs_bpf_scheduler",
+        # ":topology",
+        # "@com_google_absl//absl/debugging:symbolize",
+        # "@com_google_absl//absl/flags:parse",
+    ],
+)
+
+bpf_skeleton(
+    name = "eas_bpf_skel",
+    bpf_object = "//third_party/bpf:eas_bpf",
+    skel_hdr = "schedulers/eas_bpf/eas_bpf.skel.h",
+)
+
+cc_binary(
     name = "agent_cfs_bpf",
     srcs = [
         "schedulers/cfs_bpf/agent_cfs.cc",
