@@ -2,6 +2,9 @@
 
 // clang-format off
 #include <linux/bpf.h>
+#include <linux/perf_event.h>
+#include <linux/kernel.h>
+#include <string.h>
 #include "libbpf/bpf_helpers.h"
 #include "libbpf/bpf_tracing.h"
 // clang-format on
@@ -54,7 +57,7 @@ u64 read_perf_energy(void) {
 SEC("tracepoint/sched/sched_switch")
 int tracepoint__sched__sched_switch(struct trace_event_raw_sched_switch *ctx) {
   if (!initialized) {
-    if (rapl_init()) {
+    if (init_perf_energy()) {
       initialized = true;
     }
   }
