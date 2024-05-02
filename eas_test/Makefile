@@ -15,7 +15,9 @@ ASM_TARGETS=mult \
 	simd
 
 CXX_TARGETS=thread_io \
-	    large_mem
+	    large_mem \
+	    hashmap \
+	    file_kv
 
 TARGETS=$(ASM_TARGETS) $(CXX_TARGETS)
 

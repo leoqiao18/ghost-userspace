@@ -3,14 +3,16 @@
 #include <fstream>
 #include <unistd.h>
 
+#define GB (1024 * 1024 * 1024)
+
 int main() {
+	long long* p = (long long *) malloc(sizeof(long long) * GB);
 	while (1) {
-		int* p = (int*) malloc(sizeof(int) * 1024 * 1024 * 8);
-		for (int i = 0; i < 1024 * 1024; i++) {
-			int r = rand() % (1024 * 1024 * 8);
-			*(p+r) = 10;
+		for (long long i = 0; i < GB; i++) {
+			long long r = rand() % GB;
+			*(p + r) += 10;
 		}
-		free(p);
 	}
+	free(p);
 	return 0;
 }
