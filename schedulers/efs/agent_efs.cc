@@ -60,7 +60,14 @@ int main(int argc, char* argv[]) {
 
   // Initialize eBPF part
   struct efs_bpf *bpf = efs_bpf__open_and_load();
-  // bpf_program__set_types(bpf->progs.efs_handle_sched_switch, )
+
+  uint64_t base_watts = 0;
+  uint32_t zero = 0;
+
+  int map_fd = bpf_map__fd(bpf->base_watts);
+  if (bpf_map_update_elem(map_fd, &zero, &base_watts, BPF_ANY) < 0) {
+    DPRINT_EFS(2, "Failed to add base power map");
+  }
   efs_bpf__attach(bpf);
 
   config.bpf = bpf;

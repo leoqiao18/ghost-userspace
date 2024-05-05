@@ -22,6 +22,7 @@ struct energy_snapshot {
 struct task_consumption {
     uint64_t energy_delta;
     uint64_t time_delta;
+    uint64_t running_avg_watts;
 };
 
 #endif // GHOST_BPF_BPF_EFS_BPF_H_

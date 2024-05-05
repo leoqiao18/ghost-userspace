@@ -30,6 +30,7 @@
 #include "lib/agent.h"
 #include "lib/logging.h"
 #include "lib/topology.h"
+#include "third_party/bpf/efs_bpf.h"
 
 #define DPRINT_EFS(level, message)                               \
   do {                                                           \
@@ -45,6 +46,25 @@ ABSL_FLAG(bool, experimental_enable_idle_load_balancing, true,
           "Experimental flag to enable idle load balancing.");
 
 namespace ghost {
+
+void EfsScheduler::WattmeterAddTask(pid_t pid) {
+  struct task_consumption empty = {};
+  int map_fd = bpf_map__fd(bpf_->pid_to_consumption);
+  if (bpf_map_update_elem(map_fd, &pid, &empty, BPF_ANY) < 0) {
+    DPRINT_EFS(2, "Failed to add task consumption map");
+  }
+}
+
+void EfsScheduler::WattmeterRemoveTask(pid_t pid) {
+  int map_fd = bpf_map__fd(bpf_->pid_to_consumption);
+  if (bpf_map_delete_elem(map_fd, &pid) < 0) {
+    DPRINT_EFS(2, "Failed to delete task consumption map");
+  }
+}
+
+void EfsScheduler::WattmeterComputeScore(pid_t pid) {
+  
+}
 
 void PrintDebugTaskMessage(std::string message_name, CpuState* cs,
                            EfsTask* task) {
@@ -363,6 +383,8 @@ void EfsScheduler::MigrateTasks(CpuState* cs) {
 }
 
 void EfsScheduler::TaskNew(EfsTask* task, const Message& msg) {
+  WattmeterAddTask(task->gtid);
+
   const ghost_msg_payload_task_new* payload =
       static_cast<const ghost_msg_payload_task_new*>(msg.payload());
 
@@ -431,6 +453,7 @@ void EfsScheduler::TaskRunnable(EfsTask* task, const Message& msg) {
 // compiler raises safety analysis error.
 void EfsScheduler::HandleTaskDone(EfsTask* task, bool from_switchto)
   ABSL_NO_THREAD_SAFETY_ANALYSIS {
+  WattmeterRemoveTask(task->gtid);
   CpuState* cs = cpu_state_of(task);
   cs->run_queue.mu_.AssertHeld();
 

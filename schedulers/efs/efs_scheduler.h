@@ -533,6 +533,10 @@ class EfsScheduler : public BasicDispatchScheduler<EfsTask> {
   void CpuTick(const Message& msg) final;
 
  private:
+  void WattmeterAddTask(pid_t pid);
+  void WattmeterRemoveTask(pid_t pid);
+  void WattmeterComputeScore(pid_t pid);
+
   // Empties the channel associated with cpu and dispatches the messages.
   void DrainChannel(const Cpu& cpu);
 
