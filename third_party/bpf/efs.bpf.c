@@ -42,6 +42,7 @@ struct
     __uint(max_entries, 10000);      // number of entries
 } pid_to_consumption SEC(".maps");
 
+char LICENSE[] SEC("license") = "Dual BSD/GPL";
 
 // SEC name is important! libbpf infers program type from it.
 // See: https://docs.kernel.org/bpf/libbpf/program_types.html#program-types-and-elf

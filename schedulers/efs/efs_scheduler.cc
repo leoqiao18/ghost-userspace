@@ -777,11 +777,6 @@ void EfsScheduler::EfsSchedule(const Cpu& cpu, BarrierToken agent_barrier,
   CpuState* cs = cpu_state(cpu);
 
   EfsTask* prev = cs->current;
-  static int prev_n = 0;
-  if (prev == NULL) {
-    std::cout << "COUNT " << prev_n << std::endl << std::flush;
-    prev_n++;
-  }
 
   if (prio_boost) {
     // If we are currently running a task, we need to put it back onto the
