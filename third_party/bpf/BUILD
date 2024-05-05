@@ -21,6 +21,7 @@ exports_files(
         "biff_bpf.h",
         "cfs_bpf.h",
         "eas_bpf.h",
+        "efs_bpf.h",
         "common.bpf.h",
         "edf.h",
         "flux_bpf.h",
@@ -68,6 +69,20 @@ bpf_program(
         "//:lib/ghost_uapi.h",
     ],
     bpf_object = "biff_bpf.o",
+)
+
+bpf_program(
+    name = "efs_bpf",
+    src = "efs.bpf.c",
+    hdrs = [
+        "efs_bpf.h",
+        # "common.bpf.h",
+        "vmlinux_ghost.h",
+        # "//:abi/latest/kernel/ghost.h",
+        # "//:arr_structs",
+        # "//:lib/ghost_uapi.h",
+    ],
+    bpf_object = "efs_bpf.o",
 )
 
 bpf_program(
