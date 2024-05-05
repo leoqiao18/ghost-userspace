@@ -18,6 +18,8 @@
 #include "lib/base.h"
 #include "lib/scheduler.h"
 
+#include "schedulers/efs/efs_bpf.skel.h"
+
 static const absl::Time start = absl::Now();
 
 namespace ghost {
@@ -480,7 +482,7 @@ class EfsScheduler : public BasicDispatchScheduler<EfsTask> {
 
   explicit EfsScheduler(Enclave* enclave, CpuList cpulist,
                         std::shared_ptr<TaskAllocator<EfsTask>> allocator,
-                        absl::Duration min_granularity, absl::Duration latency);
+                        absl::Duration min_granularity, absl::Duration latency, struct efs_bpf *bpf);
   ~EfsScheduler() final {}
 
   void Schedule(const Cpu& cpu, const StatusWord& sw);
@@ -634,6 +636,7 @@ class EfsScheduler : public BasicDispatchScheduler<EfsTask> {
 
   absl::Duration min_granularity_;
   absl::Duration latency_;
+  struct efs_bpf *bpf_;
 
   bool idle_load_balancing_;
 
@@ -642,7 +645,7 @@ class EfsScheduler : public BasicDispatchScheduler<EfsTask> {
 
 std::unique_ptr<EfsScheduler> MultiThreadedEfsScheduler(
     Enclave* enclave, CpuList cpulist, absl::Duration min_granularity,
-    absl::Duration latency);
+    absl::Duration latency, struct efs_bpf *bpf);
 class EfsAgent : public LocalAgent {
  public:
   EfsAgent(Enclave* enclave, Cpu cpu, EfsScheduler* scheduler)
@@ -668,6 +671,7 @@ class EfsConfig : public AgentConfig {
 
   absl::Duration min_granularity_;
   absl::Duration latency_;
+  struct efs_bpf *bpf;
 };
 
 // TODO: Pull these classes out into different files.
@@ -677,7 +681,7 @@ class FullEfsAgent : public FullAgent<EnclaveType> {
   explicit FullEfsAgent(EfsConfig config) : FullAgent<EnclaveType>(config) {
     scheduler_ =
         MultiThreadedEfsScheduler(&this->enclave_, *this->enclave_.cpus(),
-                                  config.min_granularity_, config.latency_);
+                                  config.min_granularity_, config.latency_, config.bpf);
     this->StartAgentTasks();
     this->enclave_.Ready();
   }

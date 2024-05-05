@@ -58,10 +58,12 @@ void PrintDebugTaskMessage(std::string message_name, CpuState* cs,
 EfsScheduler::EfsScheduler(Enclave* enclave, CpuList cpulist,
                            std::shared_ptr<TaskAllocator<EfsTask>> allocator,
                            absl::Duration min_granularity,
-                           absl::Duration latency)
+                           absl::Duration latency,
+                           struct efs_bpf *bpf)
     : BasicDispatchScheduler(enclave, std::move(cpulist), std::move(allocator)),
       min_granularity_(min_granularity),
       latency_(latency),
+      bpf_(bpf),
       idle_load_balancing_(
           absl::GetFlag(FLAGS_experimental_enable_idle_load_balancing)) {
   for (const Cpu& cpu : cpus()) {
@@ -1287,11 +1289,11 @@ bool EfsRq::CanMigrateTask(EfsTask* task, const CpuState* dst_cs) {
 
 std::unique_ptr<EfsScheduler> MultiThreadedEfsScheduler(
     Enclave* enclave, CpuList cpulist, absl::Duration min_granularity,
-    absl::Duration latency) {
+    absl::Duration latency, struct efs_bpf *bpf) {
   auto allocator = std::make_shared<ThreadSafeMallocTaskAllocator<EfsTask>>();
   auto scheduler = std::make_unique<EfsScheduler>(enclave, std::move(cpulist),
                                                   std::move(allocator),
-                                                  min_granularity, latency);
+                                                  min_granularity, latency, bpf);
   return scheduler;
 }
 

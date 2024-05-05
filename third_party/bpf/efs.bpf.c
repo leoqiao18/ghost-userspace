@@ -46,7 +46,7 @@ struct
 // SEC name is important! libbpf infers program type from it.
 // See: https://docs.kernel.org/bpf/libbpf/program_types.html#program-types-and-elf
 SEC("tracepoint/sched/sched_switch")
-int shiv_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
+int efs_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
 {
     u32 cpu_id = bpf_get_smp_processor_id();
 
@@ -95,6 +95,8 @@ int shiv_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
     struct energy_snapshot new_snap;
     new_snap.energy = v.counter;
     new_snap.timestamp = ts;
+
+    bpf_printk("Energy delta: %lu\n", new_snap.energy);
 
     if (bpf_map_update_elem(&pid_to_consumption, &prev_pid, &cons, BPF_ANY) < 0) {
         bpf_printk("Failed to update task consumption map");

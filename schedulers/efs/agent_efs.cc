@@ -14,6 +14,7 @@
 #include "lib/agent.h"
 #include "lib/enclave.h"
 #include "schedulers/efs/efs_scheduler.h"
+#include "schedulers/efs/efs_bpf.skel.h"
 
 ABSL_FLAG(std::string, ghost_cpus, "1-5", "cpulist");
 ABSL_FLAG(std::string, enclave, "", "Connect to preexisting enclave directory");
@@ -56,6 +57,13 @@ int main(int argc, char* argv[]) {
   ghost::ParseAgentConfig(&config);
 
   printf("Initializing...\n");
+
+  // Initialize eBPF part
+  struct efs_bpf *bpf = efs_bpf__open_and_load();
+  // bpf_program__set_types(bpf->progs.efs_handle_sched_switch, )
+  efs_bpf__attach(bpf);
+
+  config.bpf = bpf;
 
   // Using new so we can destruct the object before printing Done
   auto uap = new ghost::AgentProcess<ghost::FullEfsAgent<ghost::LocalEnclave>,
