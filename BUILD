@@ -575,10 +575,12 @@ cc_library(
     name = "efs_scheduler",
     srcs = [
         "schedulers/efs/efs_scheduler.cc",
+        "schedulers/efs/wattmeter.cc"
     ],
     hdrs = [
         "schedulers/efs/efs_bpf.skel.h",
         "schedulers/efs/efs_scheduler.h",
+        "schedulers/efs/wattmeter.h",
         # ":arr_structs",
         "//third_party/bpf:efs_bpf.h",
     ],
@@ -590,8 +592,8 @@ cc_library(
         "@linux//:libbpf",
         ":agent",
         ":base",
-        # ":ghost",
-        # ":shared",
+        ":ghost",
+        ":shared",
         ":topology",
         "@nlohmann_json//:json",
         "@com_google_absl//absl/container:flat_hash_map",

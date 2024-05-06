@@ -19,6 +19,7 @@
 #include "lib/scheduler.h"
 
 #include "schedulers/efs/efs_bpf.skel.h"
+#include "schedulers/efs/wattmeter.h"
 
 static const absl::Time start = absl::Now();
 
@@ -533,10 +534,6 @@ class EfsScheduler : public BasicDispatchScheduler<EfsTask> {
   void CpuTick(const Message& msg) final;
 
  private:
-  void WattmeterAddTask(pid_t pid);
-  void WattmeterRemoveTask(pid_t pid);
-  void WattmeterComputeScore(pid_t pid);
-
   // Empties the channel associated with cpu and dispatches the messages.
   void DrainChannel(const Cpu& cpu);
 
@@ -640,7 +637,7 @@ class EfsScheduler : public BasicDispatchScheduler<EfsTask> {
 
   absl::Duration min_granularity_;
   absl::Duration latency_;
-  struct efs_bpf *bpf_;
+  Wattmeter wattmeter;
 
   bool idle_load_balancing_;
 

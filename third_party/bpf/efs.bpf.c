@@ -37,14 +37,6 @@ struct
 
 struct
 {
-    __uint(type, BPF_MAP_TYPE_ARRAY); // map type
-    __type(key, u32);              // key type
-    __type(value, u64);              // value type
-    __uint(max_entries, 1);      // number of entries
-} base_watts SEC(".maps");
-
-struct
-{
     __uint(type, BPF_MAP_TYPE_HASH); // map type
     __type(key, pid_t);              // key type
     __type(value, struct task_consumption);              // value type
@@ -104,18 +96,19 @@ int efs_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
 
     // update map with new data
     struct task_consumption cons;
-    cons.time_delta = ts - prev_snap->timestamp;
-    cons.energy_delta = v.counter - prev_snap->energy;
-    if (cons.time_delta != 0) 
-    {
-        u64 *base = bpf_map_lookup_elem(&base_watts, &zero);
-        // TODO: make this calculation more precise using u128
-        cons.running_avg_watts = GAMMA * (energy_delta / time_delt - base) + 
-                                 (1 - GAMMA) * prev_cons->running_avg_watts;
-    } else 
-    {
-        cons.running_avg_watts = prev_cons->running_avg_watts;
-    }
+    cons.time = prev_cons->time + (ts - prev_snap->timestamp);
+    cons.energy = prev_cons->energy + (v.counter - prev_snap->energy);
+    cons.timestamp = ts;
+    // if (cons.time_delta != 0) 
+    // {
+    //     u64 *base = bpf_map_lookup_elem(&base_watts, &zero);
+    //     // TODO: make this calculation more precise using u128
+    //     cons.running_avg_watts = GAMMA * (energy_delta / time_delt - base) + 
+    //                              (1 - GAMMA) * prev_cons->running_avg_watts;
+    // } else 
+    // {
+    //     cons.running_avg_watts = prev_cons->running_avg_watts;
+    // }
     
     if (bpf_map_update_elem(&pid_to_consumption, &prev_pid, &cons, BPF_EXIST) < 0) 
     {

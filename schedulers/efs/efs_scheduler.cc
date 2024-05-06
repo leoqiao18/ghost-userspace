@@ -47,24 +47,7 @@ ABSL_FLAG(bool, experimental_enable_idle_load_balancing, true,
 
 namespace ghost {
 
-void EfsScheduler::WattmeterAddTask(pid_t pid) {
-  struct task_consumption empty = {};
-  int map_fd = bpf_map__fd(bpf_->pid_to_consumption);
-  if (bpf_map_update_elem(map_fd, &pid, &empty, BPF_ANY) < 0) {
-    DPRINT_EFS(2, "Failed to add task consumption map");
-  }
-}
 
-void EfsScheduler::WattmeterRemoveTask(pid_t pid) {
-  int map_fd = bpf_map__fd(bpf_->pid_to_consumption);
-  if (bpf_map_delete_elem(map_fd, &pid) < 0) {
-    DPRINT_EFS(2, "Failed to delete task consumption map");
-  }
-}
-
-void EfsScheduler::WattmeterComputeScore(pid_t pid) {
-  
-}
 
 void PrintDebugTaskMessage(std::string message_name, CpuState* cs,
                            EfsTask* task) {
@@ -83,7 +66,7 @@ EfsScheduler::EfsScheduler(Enclave* enclave, CpuList cpulist,
     : BasicDispatchScheduler(enclave, std::move(cpulist), std::move(allocator)),
       min_granularity_(min_granularity),
       latency_(latency),
-      bpf_(bpf),
+      wattmeter(bpf),
       idle_load_balancing_(
           absl::GetFlag(FLAGS_experimental_enable_idle_load_balancing)) {
   for (const Cpu& cpu : cpus()) {
@@ -383,7 +366,7 @@ void EfsScheduler::MigrateTasks(CpuState* cs) {
 }
 
 void EfsScheduler::TaskNew(EfsTask* task, const Message& msg) {
-  WattmeterAddTask(task->gtid);
+  wattmeter.AddTask(task->gtid);
 
   const ghost_msg_payload_task_new* payload =
       static_cast<const ghost_msg_payload_task_new*>(msg.payload());
@@ -453,7 +436,7 @@ void EfsScheduler::TaskRunnable(EfsTask* task, const Message& msg) {
 // compiler raises safety analysis error.
 void EfsScheduler::HandleTaskDone(EfsTask* task, bool from_switchto)
   ABSL_NO_THREAD_SAFETY_ANALYSIS {
-  WattmeterRemoveTask(task->gtid);
+  wattmeter.RemoveTask(task->gtid);
   CpuState* cs = cpu_state_of(task);
   cs->run_queue.mu_.AssertHeld();
 
@@ -904,8 +887,13 @@ void EfsScheduler::EfsSchedule(const Cpu& cpu, BarrierToken agent_barrier,
       //         = wall_runtime * 2^10 / (2^32 / precomputed_inverse_weight)
       //         = wall_runtime * precomputed_inverse_weight / 2^22
       uint64_t runtime = next->status_word.runtime() - before_runtime;
-      next->vruntime += absl::Nanoseconds(static_cast<uint64_t>(
-          static_cast<absl::uint128>(next->inverse_weight) * runtime >> 22));
+      double energy_score = wattmeter.ComputeScore(next->gtid);
+
+      absl::uint128 cfs_vruntime_delta =
+          static_cast<absl::uint128>(next->inverse_weight) * runtime >> 22;
+      absl::uint128 eas_vruntime_delta = (absl::uint128) (energy_score * (double) cfs_vruntime_delta);
+      next->vruntime +=
+          absl::Nanoseconds(static_cast<uint64_t>(eas_vruntime_delta));
     } else {
       GHOST_DPRINT(3, stderr, "EfsSchedule: commit failed (state=%d)",
                    req->state());
@@ -922,6 +910,7 @@ void EfsScheduler::EfsSchedule(const Cpu& cpu, BarrierToken agent_barrier,
 void EfsScheduler::Schedule(const Cpu& cpu, const StatusWord& agent_sw) {
   BarrierToken agent_barrier = agent_sw.barrier();
   CpuState* cs = cpu_state(cpu);
+  wattmeter.Update(cs->current->gtid);
 
   GHOST_DPRINT(3, stderr, "Schedule: agent_barrier[%d] = %d\n", cpu.id(),
                agent_barrier);
