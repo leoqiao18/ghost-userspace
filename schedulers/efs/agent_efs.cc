@@ -8,6 +8,13 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <linux/perf_event.h>
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <stdio.h>
+#include <bpf/libbpf.h>
+#include <bpf/bpf.h>
+#include <errno.h>
 
 #include "absl/debugging/symbolize.h"
 #include "absl/flags/parse.h"
@@ -16,7 +23,14 @@
 #include "schedulers/efs/efs_scheduler.h"
 #include "schedulers/efs/efs_bpf.skel.h"
 
+#define PERF_COUNT_ENERGY_CORES 1
+#define PERF_COUNT_ENERGY_PKG 2
+#define PERF_COUNT_ENERGY_RAM 3
+#define PERF_COUNT_ENERGY_GPU 4
+#define PERF_COUNT_ENERGY_PSYS 5
+
 ABSL_FLAG(std::string, ghost_cpus, "1-5", "cpulist");
+ABSL_FLAG(double, base_watts, "0.0", "system base watts");
 ABSL_FLAG(std::string, enclave, "", "Connect to preexisting enclave directory");
 
 // Scheduling tuneables
@@ -27,6 +41,60 @@ ABSL_FLAG(absl::Duration, latency, absl::Milliseconds(10),
           "The target time period in which all tasks will run at least once");
 
 namespace ghost {
+
+static int CreatePerfEvent(struct bpf_map *map, uint32_t type, uint32_t config, uint32_t idx)
+{
+    int map_fd = bpf_map__fd(map);
+    
+    struct perf_event_attr attr = {};
+    attr.type = type;
+    attr.config = config;
+    attr.size = sizeof(struct perf_event_attr);
+
+    // TODO: only assuming a single socket at CPU "0"
+    int perf_fd = syscall(__NR_perf_event_open, &attr, -1 /*pid*/, 0 /*cpu*/, -1 /*group_fd*/, 0 /*flags*/);
+    if (perf_fd < 0)
+    {
+        fprintf(stderr, "ERROR: Failed to create perf event %d\n", errno);
+        return -1;
+    }
+
+    if (bpf_map_update_elem(map_fd, &idx, &perf_fd, BPF_ANY) < 0) {
+        fprintf(stderr, "ERROR: putting perf_event_fd to map failed\n");
+        close(perf_fd);
+        return -1;
+    }
+
+    return perf_fd;
+}
+
+static void SetupPerfEvents(struct efs_bpf *efs_bpf) {
+  // read power type from file
+  uint32_t type;
+  FILE *power_type;
+  int perf_fd;
+
+  power_type = fopen("/sys/bus/event_source/devices/power/type", "r");
+  if (power_type == NULL)
+  {
+      fprintf(stderr, "Unable to retrieve power type.\n");
+      exit(1);
+  }
+  fscanf(power_type, "%d", &type);
+  fclose(power_type);
+
+  if((perf_fd = CreatePerfEvent(efs_bpf->maps.perf_event_descriptors, type, PERF_COUNT_ENERGY_PKG, 0)) < 0)
+  {
+      fprintf(stderr, "Unable to create perf event.\n");
+      exit(1);
+  }
+
+  if((perf_fd = CreatePerfEvent(efs_bpf->maps.perf_event_descriptors, type, PERF_COUNT_ENERGY_RAM, 1)) < 0)
+  {
+      fprintf(stderr, "Unable to create perf event.\n");
+      exit(1);
+  }
+}
 
 static void ParseAgentConfig(EfsConfig* config) {
   CpuList ghost_cpus =
@@ -45,6 +113,7 @@ static void ParseAgentConfig(EfsConfig* config) {
 
   config->min_granularity_ = absl::GetFlag(FLAGS_min_granularity);
   config->latency_ = absl::GetFlag(FLAGS_latency);
+  config->base_watts = absl::GetFlag(FLAGS_base_watts);
 }
 
 }  // namespace ghost
@@ -60,6 +129,7 @@ int main(int argc, char* argv[]) {
 
   // Initialize eBPF part
   struct efs_bpf *bpf = efs_bpf__open_and_load();
+  ghost::SetupPerfEvents(bpf);
   efs_bpf__attach(bpf);
 
   config.bpf = bpf;

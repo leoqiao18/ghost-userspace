@@ -82,7 +82,10 @@ void Wattmeter::Update(Gtid gtid) {
   if (time_delta <= 0 || energy_delta <= 0) {
     return;
   }
-  double new_watts = (double)(energy_delta) / (double)(time_delta);
+  double new_watts = (double)(energy_delta) / (double)(time_delta) - base_watts;
+  if (new_watts < 0) {
+    new_watts = 0;
+  }
 
   auto it = pid_to_watts.find(pid);
   if (it == pid_to_watts.end()) {

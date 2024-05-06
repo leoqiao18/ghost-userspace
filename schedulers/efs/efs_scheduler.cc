@@ -62,11 +62,12 @@ EfsScheduler::EfsScheduler(Enclave* enclave, CpuList cpulist,
                            std::shared_ptr<TaskAllocator<EfsTask>> allocator,
                            absl::Duration min_granularity,
                            absl::Duration latency,
-                           struct efs_bpf *bpf)
+                           struct efs_bpf *bpf,
+                           double base_watts)
     : BasicDispatchScheduler(enclave, std::move(cpulist), std::move(allocator)),
       min_granularity_(min_granularity),
       latency_(latency),
-      wattmeter(bpf),
+      wattmeter(bpf, base_watts),
       idle_load_balancing_(
           absl::GetFlag(FLAGS_experimental_enable_idle_load_balancing)) {
   for (const Cpu& cpu : cpus()) {
@@ -559,34 +560,34 @@ void EfsScheduler::TaskBlocked(EfsTask* task, const Message& msg) {
 }
 
 void EfsScheduler::TaskPreempted(EfsTask* task, const Message& msg) {
-  // const ghost_msg_payload_task_preempt* payload =
-  //     static_cast<const ghost_msg_payload_task_preempt*>(msg.payload());
-  // Cpu cpu = topology()->cpu(MyCpu());
-  // CpuState* cs = cpu_state(cpu);
-  // PrintDebugTaskMessage("TaskPreempted", cs, task);
-  // // printf("TaskPreempted");
-  // cs->run_queue.mu_.AssertHeld();
+  const ghost_msg_payload_task_preempt* payload =
+      static_cast<const ghost_msg_payload_task_preempt*>(msg.payload());
+  Cpu cpu = topology()->cpu(MyCpu());
+  CpuState* cs = cpu_state(cpu);
+  PrintDebugTaskMessage("TaskPreempted", cs, task);
+  // printf("TaskPreempted");
+  cs->run_queue.mu_.AssertHeld();
 
-  // // If this task is not from a switchto chain, it should be the current task on
-  // // this CPU.
-  // if (!payload->from_switchto) {
-  //   CHECK_EQ(cs->current, task);
-  // }
+  // If this task is not from a switchto chain, it should be the current task on
+  // this CPU.
+  if (!payload->from_switchto) {
+    CHECK_EQ(cs->current, task);
+  }
 
-  // // The task should be in kDequeued state because only a currently running
-  // // task can be preempted.
-  // CHECK(task->task_state.OnRqDequeued());
+  // The task should be in kDequeued state because only a currently running
+  // task can be preempted.
+  CHECK(task->task_state.OnRqDequeued());
 
-  // // Updates the task state accordingly. This is safe because this task should
-  // // be associated with this CPU's agent and protected by this CPU's RQ lock.
-  // PutPrevTask(task);
+  // Updates the task state accordingly. This is safe because this task should
+  // be associated with this CPU's agent and protected by this CPU's RQ lock.
+  PutPrevTask(task);
 
-  // // This task was the last task in a switchto chain on a remote CPU. We should
-  // // ping the remote CPU to schedule a new task.
-  // if (payload->cpu != cpu.id()) {
-  //   CHECK(payload->from_switchto);
-  //   PingCpu(topology()->cpu(payload->cpu));
-  // }
+  // This task was the last task in a switchto chain on a remote CPU. We should
+  // ping the remote CPU to schedule a new task.
+  if (payload->cpu != cpu.id()) {
+    CHECK(payload->from_switchto);
+    PingCpu(topology()->cpu(payload->cpu));
+  }
 }
 
 void EfsScheduler::TaskSwitchto(EfsTask* task, const Message& msg) {
@@ -910,7 +911,9 @@ void EfsScheduler::EfsSchedule(const Cpu& cpu, BarrierToken agent_barrier,
 void EfsScheduler::Schedule(const Cpu& cpu, const StatusWord& agent_sw) {
   BarrierToken agent_barrier = agent_sw.barrier();
   CpuState* cs = cpu_state(cpu);
-  wattmeter.Update(cs->current->gtid);
+  if (cs->current != NULL) {
+    wattmeter.Update(cs->current->gtid);
+  }
 
   GHOST_DPRINT(3, stderr, "Schedule: agent_barrier[%d] = %d\n", cpu.id(),
                agent_barrier);
@@ -1296,11 +1299,11 @@ bool EfsRq::CanMigrateTask(EfsTask* task, const CpuState* dst_cs) {
 
 std::unique_ptr<EfsScheduler> MultiThreadedEfsScheduler(
     Enclave* enclave, CpuList cpulist, absl::Duration min_granularity,
-    absl::Duration latency, struct efs_bpf *bpf) {
+    absl::Duration latency, struct efs_bpf *bpf, double base_watts) {
   auto allocator = std::make_shared<ThreadSafeMallocTaskAllocator<EfsTask>>();
   auto scheduler = std::make_unique<EfsScheduler>(enclave, std::move(cpulist),
                                                   std::move(allocator),
-                                                  min_granularity, latency, bpf);
+                                                  min_granularity, latency, bpf, base_watts);
   return scheduler;
 }
 

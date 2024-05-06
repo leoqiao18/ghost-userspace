@@ -19,10 +19,11 @@ namespace ghost {
 class Wattmeter {
 
 public:
-    Wattmeter(struct efs_bpf *efs_bpf) :
+    Wattmeter(struct efs_bpf *efs_bpf, uint64_t base_watts) :
         max_watts(0),
         min_watts(0),
-        efs_bpf(efs_bpf)
+        efs_bpf(efs_bpf),
+        base_watts(base_watts)
         {
             efs_bpf_map_fd = bpf_map__fd(efs_bpf->maps.pid_to_consumption);
         }
@@ -43,6 +44,7 @@ private:
     double max_watts;
     double min_watts;
     struct efs_bpf *efs_bpf;
+    double base_watts;
     int efs_bpf_map_fd;
 };
 }

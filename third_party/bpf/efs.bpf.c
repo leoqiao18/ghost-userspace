@@ -50,12 +50,30 @@ char LICENSE[] SEC("license") = "Dual BSD/GPL";
 SEC("tracepoint/sched/sched_switch")
 int efs_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
 {
-    // get current time and energy
-    u64 perf_fd_index = 0 & BPF_F_INDEX_MASK;
-    struct bpf_perf_event_value v;
+    // INFO: only the primary core of each socket can perform energy reading
+    // This is assuming that primary core is CPU 0
+    u32 cpu_id = bpf_get_smp_processor_id();
+    if (cpu_id != 0) {
+        return 0;
+    }
+
     long err;
 
-    err = bpf_perf_event_read_value(&perf_event_descriptors, perf_fd_index, &v, sizeof(v));
+    // get current time and energy (pkg)
+    u64 perf_fd_index_pkg = 0 & BPF_F_INDEX_MASK;
+    struct bpf_perf_event_value v_pkg;
+    
+    err = bpf_perf_event_read_value(&perf_event_descriptors, perf_fd_index_pkg, &v_pkg, sizeof(v_pkg));
+    if (err < 0)
+    {
+        return 0;
+    }
+
+    // get current time and energy (pkg)
+    u64 perf_fd_index_ram = 1 & BPF_F_INDEX_MASK;
+    struct bpf_perf_event_value v_ram;
+
+    err = bpf_perf_event_read_value(&perf_event_descriptors, perf_fd_index_ram, &v_ram, sizeof(v_ram));
     if (err < 0)
     {
         return 0;
@@ -71,18 +89,13 @@ int efs_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
     }
 
     struct energy_snapshot new_snap;
-    new_snap.energy = v.counter;
+    uint64_t v_energy = v_pkg.counter + v_ram.counter;
+
+    new_snap.energy = v_energy;
     new_snap.timestamp = ts;
 
     if (bpf_map_update_elem(&energy_snapshot, &zero, &new_snap, BPF_ANY) < 0) {
         // bpf_printk("Failed to update energy snapshot map");
-        return 0;
-    }
-
-    // INFO: only the primary core of each socket can perform energy reading
-    // This is assuming that primary core is CPU 0
-    u32 cpu_id = bpf_get_smp_processor_id();
-    if (cpu_id != 0) {
         return 0;
     }
 
@@ -97,7 +110,7 @@ int efs_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
     // update map with new data
     struct task_consumption cons;
     cons.time = prev_cons->time + (ts - prev_snap->timestamp);
-    cons.energy = prev_cons->energy + (v.counter - prev_snap->energy);
+    cons.energy = prev_cons->energy + (v_energy - prev_snap->energy);
     cons.timestamp = ts;
     // if (cons.time_delta != 0) 
     // {

@@ -673,6 +673,7 @@ class EfsConfig : public AgentConfig {
   absl::Duration min_granularity_;
   absl::Duration latency_;
   struct efs_bpf *bpf;
+  double base_watts;
 };
 
 // TODO: Pull these classes out into different files.
@@ -682,7 +683,7 @@ class FullEfsAgent : public FullAgent<EnclaveType> {
   explicit FullEfsAgent(EfsConfig config) : FullAgent<EnclaveType>(config) {
     scheduler_ =
         MultiThreadedEfsScheduler(&this->enclave_, *this->enclave_.cpus(),
-                                  config.min_granularity_, config.latency_, config.bpf);
+                                  config.min_granularity_, config.latency_, config.bpf, config.base_watts);
     this->StartAgentTasks();
     this->enclave_.Ready();
   }
