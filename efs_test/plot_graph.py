@@ -106,6 +106,33 @@ def plot_timeshare_graph(sched_type, interval):
         plt.clf()
 
 
+def plot_energy_share_graph(sched_type, interval):
+    scale = read_scale()
+    file = sched_type + ".csv"
+    with open(file, "r") as f:
+        lines = f.readlines()
+
+        timesteps = list(range(0, len(lines) * interval, interval))
+
+        proc1_energy_share = [
+            float(line.split(",")[2]) / float(line.split(",")[0]) for line in lines
+        ]
+        proc2_energy_share = [
+            float(line.split(",")[4]) / float(line.split(",")[0]) for line in lines
+        ]
+
+        # plt.ylim(0, 20)
+        plt.plot(timesteps, proc1_energy_share, label="process 1")
+        plt.plot(timesteps, proc2_energy_share, label="process 2")
+        plt.ylim(0, 1.1)
+        plt.xlabel("Time (ms)")
+        plt.ylabel(r"Energy share (\%)")
+        plt.legend()
+
+        plt.savefig(sched_type + "_energy_share_graph.png")
+        plt.clf()
+
+
 if __name__ == "__main__":
     plt.style.use("science")
 
@@ -115,3 +142,4 @@ if __name__ == "__main__":
     plot_power_graph(sys.argv[1], int(sys.argv[2]))
     plot_energy_graph(sys.argv[1], int(sys.argv[2]))
     plot_timeshare_graph(sys.argv[1], int(sys.argv[2]))
+    plot_energy_share_graph(sys.argv[1], int(sys.argv[2]))
