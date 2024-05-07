@@ -1,6 +1,7 @@
 import subprocess
 import time
 import signal
+import sys
 
 INTERVAL = 1
 BASE_WATTS = 655.0
@@ -25,7 +26,7 @@ def start_ghost():
 
 def spawn_tasks():
     def taskset(pid, cpu):
-        subprocess.Popen(["taskset", "-cp", str(cpu), str(pid)] , stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        subprocess.Popen(["taskset", "-cp", str(cpu), str(pid)])
 
     def register_to_enclave(pid):
         try:
@@ -57,7 +58,7 @@ def spawn_tasks():
     
 def start_tracker(procs):
         # p = subprocess.Popen(["sudo", "efs_test/process_energy_tracker/process_energy_tracker.out", str(INTERVAL), str(procs[0].pid), str(procs[1].pid)], stdout=f)
-    p = subprocess.Popen(["sudo", "efs_test/process_energy_tracker/process_energy_tracker.out", str(INTERVAL), str(procs[0].pid), str(procs[1].pid), "efs.csv"])
+    p = subprocess.Popen(["sudo", "efs_test/process_energy_tracker/process_energy_tracker.out", str(INTERVAL), str(procs[0].pid), str(procs[1].pid), sys.argv[1]])
     all_procs_to_cleanup.append(p)
     p.wait()
 
@@ -78,4 +79,7 @@ def main():
         handle_sigint(None, None)
 
 if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print(f"usage: {sys.argv[0]} FILENAME")
+        exit(1)
     main()

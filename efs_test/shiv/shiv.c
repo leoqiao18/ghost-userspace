@@ -55,7 +55,7 @@ int create_perf_event(struct bpf_map *map, int type, uint32_t config, uint32_t i
     };
 
     // TODO: only assuming a single socket at CPU "0"
-    int perf_fd = syscall(__NR_perf_event_open, &attr, -1 /*pid*/, 1 /*cpu*/, -1 /*group_fd*/, 0 /*flags*/);
+    int perf_fd = syscall(__NR_perf_event_open, &attr, -1 /*pid*/, 0 /*cpu*/, -1 /*group_fd*/, 0 /*flags*/);
     if (perf_fd < 0)
     {
         fprintf(stderr, "ERROR: Failed to create perf event\n");
@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
     fclose(power_type);
 
     // load bpf object
-    if ((obj = load_bpf_obj("/home/flq2101/dev/github/leoqiao18/ghost-userspace/efs_test/shiv/shiv.bpf.o")) == NULL)
+    if ((obj = load_bpf_obj("./efs_test/shiv/shiv.bpf.o")) == NULL)
     {
         return 1;
     }
@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
         goto cleanup_obj;
     }
 
-    if((perf_fd = create_perf_event(perf_event_descriptors_map, type, PERF_COUNT_ENERGY_RAM, 1)) < 0)
+    if((perf_fd = create_perf_event(perf_event_descriptors_map, type, PERF_COUNT_ENERGY_PSYS, 1)) < 0)
     {
         goto cleanup_obj;
     }

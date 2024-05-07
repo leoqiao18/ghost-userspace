@@ -1,4 +1,5 @@
 import subprocess
+import sys
 import time
 import signal
 
@@ -25,11 +26,12 @@ def start_shiv(procs):
 
 def spawn_tasks():
     def taskset(pid, cpu):
-        subprocess.Popen(["taskset", "-cp", str(cpu), str(pid)] , stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        subprocess.Popen(["taskset", "-cp", str(cpu), str(pid)])
 
     cmds = [
         "eas_test/no-op",
-        "eas_test/large_mem"
+        ["python", "eas_test/cpu.py"],
+        # "eas_test/large_mem",
     ]
     procs = []
 
@@ -38,14 +40,14 @@ def spawn_tasks():
         # p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         all_procs_to_cleanup.append(p)
-        taskset(p.pid, 1)
+        taskset(p.pid, 0)
         procs.append(p)
     
     return procs
 
     
 def start_tracker(procs):
-    p = subprocess.Popen(["sudo", "efs_test/process_energy_tracker/process_energy_tracker.out", str(INTERVAL), str(procs[0].pid), str(procs[1].pid), "cfs.csv"])
+    p = subprocess.Popen(["sudo", "efs_test/process_energy_tracker/process_energy_tracker.out", str(INTERVAL), str(procs[0].pid), str(procs[1].pid), sys.argv[1]])
     all_procs_to_cleanup.append(p)
     p.wait()
 
@@ -66,4 +68,7 @@ def main():
         handle_sigint(None, None)
 
 if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print(f"usage: {sys.argv[0]} FILENAME")
+        exit(1)
     main()

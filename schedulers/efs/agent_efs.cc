@@ -52,7 +52,7 @@ static int CreatePerfEvent(struct bpf_map *map, uint32_t type, uint32_t config, 
     attr.size = sizeof(struct perf_event_attr);
 
     // TODO: only assuming a single socket at CPU "0"
-    int perf_fd = syscall(__NR_perf_event_open, &attr, -1 /*pid*/, 1 /*cpu*/, -1 /*group_fd*/, 0 /*flags*/);
+    int perf_fd = syscall(__NR_perf_event_open, &attr, -1 /*pid*/, 0 /*cpu*/, -1 /*group_fd*/, 0 /*flags*/);
     if (perf_fd < 0)
     {
         fprintf(stderr, "ERROR: Failed to create perf event %d\n", errno);

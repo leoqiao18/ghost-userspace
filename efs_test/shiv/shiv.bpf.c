@@ -53,7 +53,7 @@ int shiv_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
     // INFO: only the primary core of each socket can perform energy reading
     // This is assuming that primary core is CPU 1
     u32 cpu_id = bpf_get_smp_processor_id();
-    if (cpu_id != 1) {
+    if (cpu_id != 0) {
         return 0;
     }
 
