@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
     uint64_t energy_baseline[2];
     uint64_t time_baseline[2];
 
-    for (int i = 0; i < iterations + 3; i++) {
+    for (int i = 0; i < iterations; i++) {
         if (bpf_map_lookup_elem(energy_snapshot_fd, &energy_snapshot_key, &energy_snapshot_value) < 0) {
             perror("Failed to lookup energy_snapshot map");
             exit(1);
@@ -94,8 +94,6 @@ int main(int argc, char *argv[])
 	    energy_baseline[1] = consumption_value[1].energy;
 	    time_baseline[0] = consumption_value[0].time;
 	    time_baseline[1] = consumption_value[1].time;
-	} else if (i <= 3) {
-            // skip
         } else {
             fprintf(file, "%lu, %lu, %lu, %lu, %lu, %lu\n", 
 			    energy_snapshot_value.energy - system_energy_baseline, energy_snapshot_value.timestamp - system_time_baseline,

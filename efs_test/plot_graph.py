@@ -93,7 +93,7 @@ def plot_timeshare_graph(sched_type, interval):
             float(line.split(",")[5]) / float(line.split(",")[1]) for line in lines
         ]
 
-        # plt.ylim(0, 20)
+        plt.ylim(0, 20)
         plt.plot(timesteps, sys_timeshare, label="process 1 + process 2")
         plt.plot(timesteps, proc1_timeshare, label="process 1")
         plt.plot(timesteps, proc2_timeshare, label="process 2")
