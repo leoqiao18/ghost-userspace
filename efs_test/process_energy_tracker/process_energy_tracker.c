@@ -58,7 +58,17 @@ int main(int argc, char *argv[])
         perror("Failed to open file");
         exit(1);
     }
-    while (iterations--) {
+
+    FILE *scale_file = fopen("/sys/bus/event_source/devices/power/events/energy-pkg.scale", "r");
+
+    double scale;
+    fscanf(scale_file, "%lf", &scale);
+    fclose(scale_file);
+
+    uint64_t system_energy_baseline;
+    uint64_t energy_baseline[2];
+
+    for (int i = 0; i < iterations + 6; i++) {
         if (bpf_map_lookup_elem(energy_snapshot_fd, &energy_snapshot_key, &energy_snapshot_value) < 0) {
             perror("Failed to lookup energy_snapshot map");
             exit(1);
@@ -75,8 +85,25 @@ int main(int argc, char *argv[])
             exit(1);
         }
 
-        fprintf(file , "%lu, %lu, %lu, %lu, %lu\n", energy_snapshot_value.energy, consumption_value[0].energy, consumption_value[0].time, consumption_value[1].energy, consumption_value[1].time);
-        fflush(file);
+        if (i == 0) {
+            system_energy_baseline = energy_snapshot_value.energy;
+            energy_baseline[0] = consumption_value[0].energy;
+            energy_baseline[1] = consumption_value[1].energy;
+        } else if (i <= 5) {
+            // skip for better measurements
+        } else {
+            uint64_t time_delta = i * interval;
+            double system_watts = ((double)(energy_snapshot_value.energy - system_energy_baseline)* scale) / (double)time_delta * 1000 /* J per millisecond */ * 1000 /* J per second */;
+            // fprintf(stderr, "top of system_watts: %lf\n", ((double)(energy_snapshot_value.energy - system_energy_baseline)* scale));
+
+            double watts[2];
+            watts[0] = ((double)(consumption_value[0].energy - energy_baseline[0]) * scale) / (double)time_delta * 1000000;
+            watts[1] = ((double)(consumption_value[1].energy - energy_baseline[1]) * scale) / (double)time_delta * 1000000;
+
+            fprintf(file , "%lf, %lf, %lu, %lf, %lu\n", system_watts, watts[0], consumption_value[0].time, watts[1], consumption_value[1].time);
+            fflush(file);
+        }
+
         usleep(interval);
     }
 }

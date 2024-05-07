@@ -18,8 +18,8 @@ def plot_bench_graph(sched_type, interval):
         plt.plot(timesteps, proc1_energy, label='proc1_energy')
         plt.plot(timesteps, proc2_energy, label='proc2_energy')
 
-        plt.xlabel('Timesteps')
-        plt.ylabel('Energy')
+        plt.xlabel('Time (ms)')
+        plt.ylabel('Energy (Watts)')
         plt.legend()
 
         plt.savefig(sched_type + 'graph.png')

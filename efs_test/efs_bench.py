@@ -22,7 +22,7 @@ def clean():
 
 def start_ghost():
     # p = subprocess.Popen(["sudo", "bazel-bin/agent_efs", "--base_watts", str(BASE_WATTS), "--ghost_cpus", "0"], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-    p = subprocess.Popen(["sudo", "bazel-bin/agent_efs", "--base_watts", str(BASE_WATTS), "--ghost_cpus", "0-1", "--min_granularity", "10ms"])
+    p = subprocess.Popen(["sudo", "bazel-bin/agent_efs", "--base_watts", str(BASE_WATTS), "--ghost_cpus", "0-1", "--min_granularity", "2ms"])
     all_procs_to_cleanup.append(p)
 
 def spawn_tasks():
