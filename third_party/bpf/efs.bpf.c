@@ -53,7 +53,7 @@ int efs_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
     // INFO: only the primary core of each socket can perform energy reading
     // This is assuming that primary core is CPU 1
     u32 cpu_id = bpf_get_smp_processor_id();
-    if (cpu_id != 1) {
+    if (cpu_id != 0) {
         return 0;
     }
 
@@ -71,15 +71,15 @@ int efs_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
     }
 
     // get current time and energy (pkg)
-    u64 perf_fd_index_ram = 1 & BPF_F_INDEX_MASK;
-    struct bpf_perf_event_value v_ram;
+    // u64 perf_fd_index_ram = 1 & BPF_F_INDEX_MASK;
+    // struct bpf_perf_event_value v_ram;
 
-    err = bpf_perf_event_read_value(&perf_event_descriptors, perf_fd_index_ram, &v_ram, sizeof(v_ram));
-    if (err < 0)
-    {
-        // bpf_printk("Failed to read perf event value 2");
-        return 0;
-    }
+    // err = bpf_perf_event_read_value(&perf_event_descriptors, perf_fd_index_ram, &v_ram, sizeof(v_ram));
+    // if (err < 0)
+    // {
+    //     // bpf_printk("Failed to read perf event value 2");
+    //     return 0;
+    // }
 
     // get prev time and energy
     uint64_t ts = bpf_ktime_get_ns();
@@ -95,7 +95,7 @@ int efs_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
     };
 
     struct energy_snapshot new_snap;
-    uint64_t v_energy = v_pkg.counter + v_ram.counter;
+    uint64_t v_energy = v_pkg.counter; // + v_ram.counter;
 
     new_snap.energy = v_energy;
     new_snap.timestamp = ts;
@@ -114,7 +114,7 @@ int efs_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
     struct task_consumption *prev_cons = bpf_map_lookup_elem(&pid_to_consumption, &prev_pid);
     if (prev_cons == 0) 
     {
-        bpf_printk("Failed to find value from pid to consumption map for pid %d", prev_pid);
+        // bpf_printk("Failed to find value from pid to consumption map for pid %d", prev_pid);
         return 0;
     }
 
@@ -123,25 +123,11 @@ int efs_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
     cons.time = prev_cons->time + (ts - prev_snap_copy.timestamp);
     cons.energy = prev_cons->energy + (v_energy - prev_snap_copy.energy);
     cons.timestamp = ts;
-    if (cons.time - prev_cons->time > 0) {
-        bpf_printk("watts %d", (cons.energy - prev_cons->energy) / (cons.time - prev_cons->time));
-    }
-    // if (cons.time_delta != 0) 
-    // {
-    //     u64 *base = bpf_map_lookup_elem(&base_watts, &zero);
-    //     // TODO: make this calculation more precise using u128
-    //     cons.running_avg_watts = GAMMA * (energy_delta / time_delt - base) + 
-    //                              (1 - GAMMA) * prev_cons->running_avg_watts;
-    // } else 
-    // {
-    //     cons.running_avg_watts = prev_cons->running_avg_watts;
-    // }
-    
+
     if (bpf_map_update_elem(&pid_to_consumption, &prev_pid, &cons, BPF_EXIST) < 0) 
     {
         // bpf_printk("Failed to update task consumption map");
     }
 
-    bpf_printk("Success for pid %d", prev_pid);
     return 0;
 }

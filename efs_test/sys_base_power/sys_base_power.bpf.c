@@ -58,19 +58,19 @@ int sys_base_power_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
         return 0;
     }
 
-    // get current time and energy (pkg)
-    u64 perf_fd_index_ram = 1 & BPF_F_INDEX_MASK;
-    struct bpf_perf_event_value v_ram;
+    // get current time and energy (ram)
+    // u64 perf_fd_index_ram = 1 & BPF_F_INDEX_MASK;
+    // struct bpf_perf_event_value v_ram;
 
-    err = bpf_perf_event_read_value(&perf_event_descriptors, perf_fd_index_ram, &v_ram, sizeof(v_ram));
-    if (err < 0)
-    {
-        return 0;
-    }
+    // err = bpf_perf_event_read_value(&perf_event_descriptors, perf_fd_index_ram, &v_ram, sizeof(v_ram));
+    // if (err < 0)
+    // {
+    //     return 0;
+    // }
 
     // update map with new data
     struct energy_snapshot new_snap;
-    new_snap.energy = v_pkg.counter + v_ram.counter;
+    new_snap.energy = v_pkg.counter; //+ v_ram.counter;
     new_snap.timestamp = ts;
 
     if (bpf_map_update_elem(&energy_snapshot, &zero, &new_snap, BPF_ANY) < 0) {

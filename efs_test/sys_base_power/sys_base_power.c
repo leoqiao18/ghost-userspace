@@ -134,10 +134,10 @@ int main(int argc, char *argv[])
         goto cleanup_obj;
     }
 
-    if((perf_fd[1] = create_perf_event(perf_event_descriptors_map, type, PERF_COUNT_ENERGY_RAM, 1)) < 0)
-    {
-        goto cleanup_obj;
-    }
+    // if((perf_fd[1] = create_perf_event(perf_event_descriptors_map, type, PERF_COUNT_ENERGY_RAM, 1)) < 0)
+    // {
+    //     goto cleanup_obj;
+    // }
     
     // attach bpf program
     if ((link = attach_bpf_prog_to_sched_switch(obj, "sys_base_power_handle_sched_switch")) == NULL)

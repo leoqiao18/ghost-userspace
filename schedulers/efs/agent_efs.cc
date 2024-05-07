@@ -89,11 +89,11 @@ static void SetupPerfEvents(struct efs_bpf *efs_bpf) {
       exit(1);
   }
 
-  if((perf_fd = CreatePerfEvent(efs_bpf->maps.perf_event_descriptors, type, PERF_COUNT_ENERGY_RAM, 1)) < 0)
-  {
-      fprintf(stderr, "Unable to create perf event.\n");
-      exit(1);
-  }
+  // if((perf_fd = CreatePerfEvent(efs_bpf->maps.perf_event_descriptors, type, PERF_COUNT_ENERGY_RAM, 1)) < 0)
+  // {
+  //     fprintf(stderr, "Unable to create perf event.\n");
+  //     exit(1);
+  // }
 }
 
 static void ParseAgentConfig(EfsConfig* config) {

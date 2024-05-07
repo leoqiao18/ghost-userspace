@@ -71,15 +71,15 @@ int shiv_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
     }
 
     // get current time and energy (ram)
-    u64 perf_fd_index_ram = 1 & BPF_F_INDEX_MASK;
-    struct bpf_perf_event_value v_ram;
+    // u64 perf_fd_index_ram = 1 & BPF_F_INDEX_MASK;
+    // struct bpf_perf_event_value v_ram;
 
-    err = bpf_perf_event_read_value(&perf_event_descriptors, perf_fd_index_ram, &v_ram, sizeof(v_ram));
-    if (err < 0)
-    {
-        // bpf_printk("Failed to read perf event value 2");
-        return 0;
-    }
+    // err = bpf_perf_event_read_value(&perf_event_descriptors, perf_fd_index_ram, &v_ram, sizeof(v_ram));
+    // if (err < 0)
+    // {
+    //     // bpf_printk("Failed to read perf event value 2");
+    //     return 0;
+    // }
 
     // get prev time and energy
     uint64_t ts = bpf_ktime_get_ns();
@@ -96,7 +96,7 @@ int shiv_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
     };
 
     struct energy_snapshot new_snap;
-    uint64_t v_energy = v_pkg.counter + v_ram.counter;
+    uint64_t v_energy = v_pkg.counter; // + v_ram.counter;
 
     new_snap.energy = v_energy;
     new_snap.timestamp = ts;
