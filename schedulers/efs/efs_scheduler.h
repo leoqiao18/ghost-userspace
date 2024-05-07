@@ -483,7 +483,7 @@ class EfsScheduler : public BasicDispatchScheduler<EfsTask> {
 
   explicit EfsScheduler(Enclave* enclave, CpuList cpulist,
                         std::shared_ptr<TaskAllocator<EfsTask>> allocator,
-                        absl::Duration min_granularity, absl::Duration latency, struct efs_bpf *bpf);
+                        absl::Duration min_granularity, absl::Duration latency, struct efs_bpf *bpf, double base_watts);
   ~EfsScheduler() final {}
 
   void Schedule(const Cpu& cpu, const StatusWord& sw);
@@ -646,7 +646,7 @@ class EfsScheduler : public BasicDispatchScheduler<EfsTask> {
 
 std::unique_ptr<EfsScheduler> MultiThreadedEfsScheduler(
     Enclave* enclave, CpuList cpulist, absl::Duration min_granularity,
-    absl::Duration latency, struct efs_bpf *bpf);
+    absl::Duration latency, struct efs_bpf *bpf, double base_watts);
 class EfsAgent : public LocalAgent {
  public:
   EfsAgent(Enclave* enclave, Cpu cpu, EfsScheduler* scheduler)

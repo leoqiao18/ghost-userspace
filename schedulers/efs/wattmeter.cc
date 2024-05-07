@@ -8,7 +8,10 @@
 namespace ghost {
 
 void Wattmeter::AddTask(Gtid gtid) {
-  pid_t tid = gtid.tid();
+  absl::MutexLock lock(&mu_);
+
+  pid_t tid = gtid.tid(); 
+  // printf("Adding task %d\n", tid);
   struct task_consumption empty = {};
   if (bpf_map_update_elem(efs_bpf_map_fd, &tid, &empty, BPF_ANY) < 0) {
     printf("Failed to add task consumption map");
@@ -17,6 +20,8 @@ void Wattmeter::AddTask(Gtid gtid) {
 }
 
 void Wattmeter::RemoveTask(Gtid gtid) {
+  absl::MutexLock lock(&mu_);
+
   pid_t tid = gtid.tid();
   if (bpf_map_delete_elem(efs_bpf_map_fd, &tid) < 0) {
     printf("Failed to delete task consumption map");
@@ -33,6 +38,8 @@ void Wattmeter::RemoveTask(Gtid gtid) {
 }
 
 double Wattmeter::ComputeScore(Gtid gtid) {
+    absl::MutexLock lock(&mu_);
+
     pid_t pid = gtid.tid();
     auto it = pid_to_watts.find(pid);
     if (it == pid_to_watts.end()) {
@@ -51,6 +58,7 @@ void Wattmeter::Update(Gtid gtid) {
   absl::MutexLock lock(&mu_);
 
   pid_t pid = gtid.tid();
+  // printf("Updating task %d\n", pid); 
 
   // get the local task_consumption
   auto cons_it = pid_to_task_consumption.find(pid);

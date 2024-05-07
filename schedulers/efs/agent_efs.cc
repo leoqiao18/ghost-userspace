@@ -30,7 +30,7 @@
 #define PERF_COUNT_ENERGY_PSYS 5
 
 ABSL_FLAG(std::string, ghost_cpus, "1-5", "cpulist");
-ABSL_FLAG(double, base_watts, "0.0", "system base watts");
+ABSL_FLAG(double, base_watts, 0.0, "system base watts");
 ABSL_FLAG(std::string, enclave, "", "Connect to preexisting enclave directory");
 
 // Scheduling tuneables
@@ -52,7 +52,7 @@ static int CreatePerfEvent(struct bpf_map *map, uint32_t type, uint32_t config, 
     attr.size = sizeof(struct perf_event_attr);
 
     // TODO: only assuming a single socket at CPU "0"
-    int perf_fd = syscall(__NR_perf_event_open, &attr, -1 /*pid*/, 0 /*cpu*/, -1 /*group_fd*/, 0 /*flags*/);
+    int perf_fd = syscall(__NR_perf_event_open, &attr, -1 /*pid*/, 1 /*cpu*/, -1 /*group_fd*/, 0 /*flags*/);
     if (perf_fd < 0)
     {
         fprintf(stderr, "ERROR: Failed to create perf event %d\n", errno);
@@ -119,6 +119,12 @@ static void ParseAgentConfig(EfsConfig* config) {
 }  // namespace ghost
 
 int main(int argc, char* argv[]) {
+  // set task affinity
+  // cpu_set_t  mask;
+  // CPU_ZERO(&mask);
+  // CPU_SET(1, &mask);
+  // int result = sched_setaffinity(0, sizeof(mask), &mask);
+
   absl::InitializeSymbolizer(argv[0]);
   absl::ParseCommandLine(argc, argv);
 
@@ -130,6 +136,24 @@ int main(int argc, char* argv[]) {
   // Initialize eBPF part
   struct efs_bpf *bpf = efs_bpf__open_and_load();
   ghost::SetupPerfEvents(bpf);
+
+  // Share the maps with other applications
+  int pid_to_consumption_fd = bpf_map__fd(bpf->maps.pid_to_consumption);
+  int energy_snapshot_fd = bpf_map__fd(bpf->maps.energy_snapshot);
+  int ret;
+  ret = bpf_obj_pin(pid_to_consumption_fd, "/sys/fs/bpf/pid_to_consumption");
+  if (ret) {
+    perror("Failed to pin map");
+    close(pid_to_consumption_fd);
+    exit(1);
+  }
+  ret = bpf_obj_pin(energy_snapshot_fd, "/sys/fs/bpf/energy_snapshot");
+  if (ret) {
+    perror("Failed to pin map");
+    close(energy_snapshot_fd);
+    exit(1);
+  }
+
   efs_bpf__attach(bpf);
 
   config.bpf = bpf;

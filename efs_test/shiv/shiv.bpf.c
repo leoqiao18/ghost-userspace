@@ -5,15 +5,15 @@
 // #include <linux/perf_event.h>
 // #include <linux/kernel.h>
 // #include <string.h>
-#include "third_party/bpf/vmlinux_ghost.h"
-#include "libbpf/bpf_helpers.h"
-#include "libbpf/bpf_tracing.h"
+#include "vmlinux.h"
+#include "bpf/bpf_helpers.h"
+#include "bpf/bpf_tracing.h"
 // clang-format on
 
 // #include "lib/ghost_uapi.h"
 // #include "lib/queue.bpf.h"
 // #include "third_party/bpf/common.bpf.h"
-#include "third_party/bpf/efs_bpf.h"
+#include "shiv.h"
 
 // #include <asm-generic/errno.h>
 
@@ -48,7 +48,7 @@ char LICENSE[] SEC("license") = "Dual BSD/GPL";
 // SEC name is important! libbpf infers program type from it.
 // See: https://docs.kernel.org/bpf/libbpf/program_types.html#program-types-and-elf
 SEC("tracepoint/sched/sched_switch")
-int efs_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
+int shiv_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
 {
     // INFO: only the primary core of each socket can perform energy reading
     // This is assuming that primary core is CPU 1
@@ -70,7 +70,7 @@ int efs_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
         return 0;
     }
 
-    // get current time and energy (pkg)
+    // get current time and energy (ram)
     u64 perf_fd_index_ram = 1 & BPF_F_INDEX_MASK;
     struct bpf_perf_event_value v_ram;
 
@@ -89,6 +89,7 @@ int efs_handle_sched_switch(struct trace_event_raw_sched_switch *ctx)
         // bpf_printk("Failed to find value from energy snapshot");
         return 0;
     }
+
     struct energy_snapshot prev_snap_copy = {
         .energy = prev_snap->energy,
         .timestamp = prev_snap->timestamp
