@@ -133,13 +133,50 @@ def plot_energy_share_graph(sched_type, interval):
         plt.clf()
 
 
+def plot_cfs_efs_energy_graph(sched_cfs, sched_efs, interval):
+    scale = read_scale()
+    file_cfs = sched_cfs + ".csv"
+    file_efs = sched_efs + ".csv"
+    with open(file_cfs, "r") as f_cfs:
+        with open(file_efs, "r") as f_efs:
+            lines_cfs = f_cfs.readlines()
+            lines_efs = f_efs.readlines()
+
+            timesteps = list(range(0, len(lines_cfs) * interval, interval))
+
+            sys_energy_cfs = [float(line.split(",")[0]) for line in lines_cfs]
+            sys_energy_efs = [float(line.split(",")[0]) for line in lines_efs]
+
+            sys_energy_cfs = [p * scale for p in sys_energy_cfs]
+            sys_energy_efs = [p * scale for p in sys_energy_efs]
+
+            plt.plot(timesteps, sys_energy_cfs, label="CFS")
+            plt.plot(timesteps, sys_energy_efs, label="EFS")
+            plt.ylim(0, 16)
+            plt.xlabel("Time (ms)")
+            plt.ylabel(r"Energy (Joules)")
+            plt.legend()
+
+            plt.savefig(sched_cfs + "_efs_energy_share_graph.png")
+            plt.clf()
+
+
 if __name__ == "__main__":
     plt.style.use("science")
 
     # Increase the figure size
     plt.figure(figsize=(4, 3), dpi=300)
 
-    plot_power_graph(sys.argv[1], int(sys.argv[2]))
-    plot_energy_graph(sys.argv[1], int(sys.argv[2]))
-    plot_timeshare_graph(sys.argv[1], int(sys.argv[2]))
-    plot_energy_share_graph(sys.argv[1], int(sys.argv[2]))
+    plot_power_graph(sys.argv[1] + "-cfs", int(sys.argv[2]))
+    plot_energy_graph(sys.argv[1] + "-cfs", int(sys.argv[2]))
+    plot_timeshare_graph(sys.argv[1] + "-cfs", int(sys.argv[2]))
+    plot_energy_share_graph(sys.argv[1] + "-cfs", int(sys.argv[2]))
+
+    plot_power_graph(sys.argv[1] + "-efs", int(sys.argv[2]))
+    plot_energy_graph(sys.argv[1] + "-efs", int(sys.argv[2]))
+    plot_timeshare_graph(sys.argv[1] + "-efs", int(sys.argv[2]))
+    plot_energy_share_graph(sys.argv[1] + "-efs", int(sys.argv[2]))
+
+    plot_cfs_efs_energy_graph(
+        sys.argv[1] + "-cfs", sys.argv[1] + "-efs", int(sys.argv[2])
+    )
