@@ -3,8 +3,9 @@ import sys
 import time
 import signal
 
-INTERVAL = 1
-BASE_WATTS = 1.0
+INTERVAL = 1000
+ITERATIONS = 100
+BASE_WATTS = 8.0
 all_procs_to_cleanup = []
 
 
@@ -47,7 +48,7 @@ def spawn_tasks():
 
     
 def start_tracker(procs):
-    p = subprocess.Popen(["sudo", "efs_test/process_energy_tracker/process_energy_tracker.out", str(INTERVAL), str(procs[0].pid), str(procs[1].pid), sys.argv[1]])
+    p = subprocess.Popen(["sudo", "efs_test/process_energy_tracker/process_energy_tracker.out", str(INTERVAL), str(procs[0].pid), str(procs[1].pid), sys.argv[1], str(ITERATIONS)])
     all_procs_to_cleanup.append(p)
     p.wait()
 
@@ -68,7 +69,10 @@ def main():
         handle_sigint(None, None)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print(f"usage: {sys.argv[0]} FILENAME")
+    if len(sys.argv) != 5:
+        print(f"usage: {sys.argv[0]} FILENAME INTERVAL ITERATIONS BASE_WATTS")
         exit(1)
+    INTERVAL = int(sys.argv[2])
+    ITERATIONS = int(sys.argv[3])
+    BASE_WATTS = float(sys.argv[4])
     main()

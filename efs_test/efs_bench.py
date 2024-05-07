@@ -3,8 +3,9 @@ import time
 import signal
 import sys
 
-INTERVAL = 1
-BASE_WATTS = 655.0
+INTERVAL = 1000
+ITERATIONS = 100
+BASE_WATTS = 8.0
 all_procs_to_cleanup = []
 
 def handle_sigint(sig, frame):
@@ -49,7 +50,7 @@ def spawn_tasks():
         # p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         all_procs_to_cleanup.append(p)
-        taskset(p.pid, 1)
+        taskset(p.pid, 0)
         register_to_enclave(p.pid)
         procs.append(p)
     
@@ -58,7 +59,7 @@ def spawn_tasks():
     
 def start_tracker(procs):
         # p = subprocess.Popen(["sudo", "efs_test/process_energy_tracker/process_energy_tracker.out", str(INTERVAL), str(procs[0].pid), str(procs[1].pid)], stdout=f)
-    p = subprocess.Popen(["sudo", "efs_test/process_energy_tracker/process_energy_tracker.out", str(INTERVAL), str(procs[0].pid), str(procs[1].pid), sys.argv[1]])
+    p = subprocess.Popen(["sudo", "efs_test/process_energy_tracker/process_energy_tracker.out", str(INTERVAL), str(procs[0].pid), str(procs[1].pid), sys.argv[1], str(ITERATIONS)])
     all_procs_to_cleanup.append(p)
     p.wait()
 
@@ -71,15 +72,16 @@ def main():
         start_ghost()
         time.sleep(1)
         procs = spawn_tasks()
-        for p in procs:
-            print(p.pid)
         start_tracker(procs)
         handle_sigint(None, None)
     except Exception as e:
         handle_sigint(None, None)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print(f"usage: {sys.argv[0]} FILENAME")
+    if len(sys.argv) != 5:
+        print(f"usage: {sys.argv[0]} FILENAME INTERVAL ITERATIONS BASE_WATTS")
         exit(1)
+    INTERVAL = int(sys.argv[2])
+    ITERATIONS = int(sys.argv[3])
+    BASE_WATTS = float(sys.argv[4])
     main()

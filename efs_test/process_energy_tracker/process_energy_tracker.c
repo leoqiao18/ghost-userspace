@@ -27,9 +27,9 @@ int main(int argc, char *argv[])
     pid_t target_pids[2];
 
     // Parse cli arguments
-    if (argc != 5)
+    if (argc != 6)
     {
-        fprintf(stderr, "usage: %s INTERVAL PID1 PID2 FILENAME\n", argv[0]);
+        fprintf(stderr, "usage: %s INTERVAL PID1 PID2 FILENAME ITER\n", argv[0]);
         return 1;
     }
 
@@ -37,6 +37,7 @@ int main(int argc, char *argv[])
     target_pids[0] = atoi(argv[2]);
     target_pids[1] = atoi(argv[3]);
     char *filename = argv[4];
+    int iterations = atoi(argv[5]);
 
     int pid_to_consumption_fd = bpf_obj_get("/sys/fs/bpf/pid_to_consumption");
     if (pid_to_consumption_fd < 0) {
@@ -57,8 +58,7 @@ int main(int argc, char *argv[])
         perror("Failed to open file");
         exit(1);
     }
-    while (1) {
-        sleep(interval);
+    while (iterations--) {
         if (bpf_map_lookup_elem(energy_snapshot_fd, &energy_snapshot_key, &energy_snapshot_value) < 0) {
             perror("Failed to lookup energy_snapshot map");
             exit(1);
@@ -77,5 +77,6 @@ int main(int argc, char *argv[])
 
         fprintf(file , "%lu, %lu, %lu, %lu, %lu\n", energy_snapshot_value.energy, consumption_value[0].energy, consumption_value[0].time, consumption_value[1].energy, consumption_value[1].time);
         fflush(file);
+        usleep(interval);
     }
 }
