@@ -40,8 +40,10 @@ def spawn_tasks():
             print(f"Error writing pid {pid}: {e}")
 
     cmds = [
-        "eas_test/no-op",
-        "eas_test/large_mem"
+        # "eas_test/no-op",
+        # "eas_test/large_mem"
+        ["python3", "efs_test/mem.py"],
+        ["python3", "efs_test/crypto.py"],
     ]
     procs = []
 
