@@ -165,7 +165,7 @@ if __name__ == "__main__":
     plt.style.use("science")
 
     # Increase the figure size
-    plt.figure(figsize=(4, 3), dpi=300)
+    plt.figure(figsize=(3, 3), dpi=300)
 
     plot_power_graph(sys.argv[1] + "-cfs", int(sys.argv[2]))
     plot_energy_graph(sys.argv[1] + "-cfs", int(sys.argv[2]))
