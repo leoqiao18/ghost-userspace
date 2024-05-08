@@ -79,18 +79,37 @@ def plot_timeshare_graph(sched_type, interval):
     with open(file, "r") as f:
         lines = f.readlines()
 
-        timesteps = [interval * i / 1000000 for i in range(0, len(lines))]
+        # timesteps = [interval * i / 1000000 for i in range(0, len(lines))]
+        #
+        # sys_timeshare = [
+        #     (float(line.split(",")[3]) + float(line.split(",")[5]))
+        #     / float(line.split(",")[1])
+        #     for line in lines
+        # ]
+        # proc1_timeshare = [
+        #     float(line.split(",")[3]) / float(line.split(",")[1]) for line in lines
+        # ]
+        # proc2_timeshare = [
+        #     float(line.split(",")[5]) / float(line.split(",")[1]) for line in lines
+        # ]
 
-        sys_timeshare = [
-            (float(line.split(",")[3]) + float(line.split(",")[5]))
-            / float(line.split(",")[1])
-            for line in lines
+        lines_with_shifted_by_ten = list(zip(lines, lines[10:]))
+
+        timesteps = [
+            interval * i / 1000000 for i in range(0, len(lines_with_shifted_by_ten))
         ]
+
         proc1_timeshare = [
-            float(line.split(",")[3]) / float(line.split(",")[1]) for line in lines
+            (float(line.split(",")[3])
+            - float(line10.split(",")[3]))
+            / (float(line.split(",")[1]) - float(line10.split(",")[1]))
+            for (line, line10) in lines_with_shifted_by_ten
         ]
         proc2_timeshare = [
-            float(line.split(",")[5]) / float(line.split(",")[1]) for line in lines
+            (float(line.split(",")[5])
+            - float(line10.split(",")[5]))
+            / (float(line.split(",")[1]) - float(line10.split(",")[1]))
+            for (line, line10) in lines_with_shifted_by_ten
         ]
 
         plt.plot(timesteps, proc1_timeshare, label="process 1")
@@ -116,14 +135,14 @@ def plot_energy_share_graph(sched_type, interval):
         ]
 
         proc1_energy_share = [
-            float(line.split(",")[2])
-            - float(line10.split(",")[2])
+            (float(line.split(",")[2])
+            - float(line10.split(",")[2]))
             / (float(line.split(",")[0]) - float(line10.split(",")[0]))
             for (line, line10) in lines_with_shifted_by_ten
         ]
         proc2_energy_share = [
-            float(line.split(",")[4])
-            - float(line10.split(",")[4])
+            (float(line.split(",")[4])
+            - float(line10.split(",")[4]))
             / (float(line.split(",")[0]) - float(line10.split(",")[0]))
             for (line, line10) in lines_with_shifted_by_ten
         ]
