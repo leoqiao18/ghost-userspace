@@ -87,17 +87,17 @@ def plot_timeshare_graph(sched_type, interval):
             for line in lines
         ]
         proc1_timeshare = [
-            float(line.split(",")[3]) / float(line.split(",")[1]) for line in lines
+            float(line.split(",")[3]) / float(line.split(",")[1])  * 100 for line in lines
         ]
         proc2_timeshare = [
-            float(line.split(",")[5]) / float(line.split(",")[1]) for line in lines
+            float(line.split(",")[5]) / float(line.split(",")[1])  * 100 for line in lines
         ]
 
         plt.ylim(0, 20)
         plt.plot(timesteps, sys_timeshare, label="process 1 + process 2")
         plt.plot(timesteps, proc1_timeshare, label="process 1")
         plt.plot(timesteps, proc2_timeshare, label="process 2")
-        plt.ylim(0, 1.1)
+        plt.ylim(0, 110)
         plt.xlabel("Time (ms)")
         plt.ylabel(r"CPU time (\%)")
         plt.legend()
@@ -115,16 +115,16 @@ def plot_energy_share_graph(sched_type, interval):
         timesteps = list(range(0, len(lines) * interval, interval))
 
         proc1_energy_share = [
-            float(line.split(",")[2]) / float(line.split(",")[0]) for line in lines
+            float(line.split(",")[2]) / float(line.split(",")[0]) * 100 for line in lines
         ]
         proc2_energy_share = [
-            float(line.split(",")[4]) / float(line.split(",")[0]) for line in lines
+            float(line.split(",")[4]) / float(line.split(",")[0]) * 100 for line in lines
         ]
 
         # plt.ylim(0, 20)
         plt.plot(timesteps, proc1_energy_share, label="process 1")
         plt.plot(timesteps, proc2_energy_share, label="process 2")
-        plt.ylim(0, 1.1)
+        plt.ylim(0, 110)
         plt.xlabel("Time (ms)")
         plt.ylabel(r"Energy share (\%)")
         plt.legend()
