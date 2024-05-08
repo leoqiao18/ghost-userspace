@@ -16,7 +16,7 @@ def plot_power_graph(sched_type, interval):
     with open(file, "r") as f:
         lines = f.readlines()
 
-        timesteps = [ interval * i / 1000000 for i in range(0, len(lines))]
+        timesteps = [interval * i / 1000000 for i in range(0, len(lines))]
 
         sys_power = [
             float(line.split(",")[0]) / float(line.split(",")[1]) for line in lines
@@ -50,7 +50,7 @@ def plot_energy_graph(sched_type, interval):
     with open(file, "r") as f:
         lines = f.readlines()
 
-        timesteps = [ interval * i / 1000000 for i in range(0, len(lines))]
+        timesteps = [interval * i / 1000000 for i in range(0, len(lines))]
 
         sys_energy = [float(line.split(",")[0]) for line in lines]
         proc1_energy = [float(line.split(",")[2]) for line in lines]
@@ -79,7 +79,7 @@ def plot_timeshare_graph(sched_type, interval):
     with open(file, "r") as f:
         lines = f.readlines()
 
-        timesteps = [ interval * i / 1000000 for i in range(0, len(lines))]
+        timesteps = [interval * i / 1000000 for i in range(0, len(lines))]
 
         sys_timeshare = [
             (float(line.split(",")[3]) + float(line.split(",")[5]))
@@ -105,18 +105,27 @@ def plot_timeshare_graph(sched_type, interval):
 
 
 def plot_energy_share_graph(sched_type, interval):
-    scale = read_scale()
     file = sched_type + ".csv"
     with open(file, "r") as f:
         lines = f.readlines()
 
-        timesteps = [ interval * i / 1000000 for i in range(0, len(lines))]
+        lines_with_shifted_by_ten = list(zip(lines, lines[10:]))
+
+        timesteps = [
+            interval * i / 1000000 for i in range(0, len(lines_with_shifted_by_ten))
+        ]
 
         proc1_energy_share = [
-            float(line.split(",")[2]) / float(line.split(",")[0]) for line in lines
+            float(line.split(",")[2])
+            - float(line10.split(",")[2])
+            / (float(line.split(",")[0]) - float(line10.split(",")[0]))
+            for (line, line10) in lines_with_shifted_by_ten
         ]
         proc2_energy_share = [
-            float(line.split(",")[4]) / float(line.split(",")[0]) for line in lines
+            float(line.split(",")[4])
+            - float(line10.split(",")[4])
+            / (float(line.split(",")[0]) - float(line10.split(",")[0]))
+            for (line, line10) in lines_with_shifted_by_ten
         ]
 
         plt.plot(timesteps, proc1_energy_share, label="process 1")
@@ -139,7 +148,7 @@ def plot_cfs_efs_energy_graph(sched_cfs, sched_efs, interval):
             lines_cfs = f_cfs.readlines()
             lines_efs = f_efs.readlines()
 
-            timesteps = [ interval * i / 1000000 for i in range(0, len(lines_cfs))]
+            timesteps = [interval * i / 1000000 for i in range(0, len(lines_cfs))]
 
             sys_energy_cfs = [float(line.split(",")[0]) for line in lines_cfs]
             sys_energy_efs = [float(line.split(",")[0]) for line in lines_efs]
@@ -174,6 +183,4 @@ if __name__ == "__main__":
     plot_timeshare_graph(sys.argv[1] + "-efs", interval)
     plot_energy_share_graph(sys.argv[1] + "-efs", interval)
 
-    plot_cfs_efs_energy_graph(
-        sys.argv[1] + "-cfs", sys.argv[1] + "-efs", interval
-    )
+    plot_cfs_efs_energy_graph(sys.argv[1] + "-cfs", sys.argv[1] + "-efs", interval)
