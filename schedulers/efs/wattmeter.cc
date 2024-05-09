@@ -124,6 +124,10 @@ bool Wattmeter::ReachedLimit(Gtid gtid) {
 
   pid_t pid = gtid.tid();
 
+  if (pid % 3 == 0) {
+    return false;
+  }
+
   if (pid_to_consumption_buffer.find(pid) == pid_to_consumption_buffer.end()) {
     return false;
   }
@@ -147,9 +151,8 @@ bool Wattmeter::ReachedLimit(Gtid gtid) {
   uint64_t energy = pid_to_consumption_buffer[pid].back().energy -
                     pid_to_consumption_buffer[pid].front().energy;
 
-  printf("Energy: %lu\n", energy);
-
-  if (energy > 1000000000000000) {
+  if (energy > 25769803776) {
+    printf("%ld\n", energy);
     return true;
   }
 

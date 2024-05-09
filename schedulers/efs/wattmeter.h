@@ -8,6 +8,7 @@
 #include <iostream>
 #include <unordered_map>
 #include <unordered_set>
+#include <deque>
 
 #define EFS_ENERGY_GAMMA 0.5
 #define EFS_ENERGY_SCORE_MAX 2
@@ -36,7 +37,7 @@ protected:
 private:
   mutable absl::Mutex mu_;
 
-  std::unordered_map<pid_t, std::deque<struct pid_consumption>>
+  std::unordered_map<pid_t, std::deque<struct task_consumption>>
       pid_to_consumption_buffer;
   std::unordered_map<pid_t, double> pid_to_watts;
   std::unordered_map<pid_t, struct task_consumption> pid_to_task_consumption;

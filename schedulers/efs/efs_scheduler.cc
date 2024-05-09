@@ -769,7 +769,7 @@ inline EfsTask *EfsScheduler::NewIdleBalance(CpuState *cs) {
   }
 
   absl::MutexLock lock(&cs->run_queue.mu_);
-  return cs->run_queue.PickNextTask(nullptr, allocator(), cs);
+  return cs->run_queue.PickNextTask(nullptr, allocator(), cs, &wattmeter);
 }
 
 //-----------------------------------------------------------------------------
@@ -830,7 +830,7 @@ void EfsScheduler::EfsSchedule(const Cpu &cpu, BarrierToken agent_barrier,
   }
 
   cs->run_queue.mu_.Lock();
-  EfsTask *next = cs->run_queue.PickNextTask(prev, allocator(), cs);
+  EfsTask *next = cs->run_queue.PickNextTask(prev, allocator(), cs, &wattmeter);
   cs->run_queue.mu_.Unlock();
 
   if (!next && idle_load_balancing_) {
@@ -1096,14 +1096,14 @@ void EfsRq::PutPrevTask(EfsTask *task) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
 }
 
 EfsTask *EfsRq::PickNextTask(EfsTask *prev, TaskAllocator<EfsTask> *allocator,
-                             CpuState *cs) {
+                             CpuState *cs, Wattmeter *wattmeter) {
   // Check if we can just keep running the current task.
   // std::cout << (prev == NULL)  << std::endl;
   // if (prev != NULL) {
   //   std::cout << (prev->task_state.IsRunning()) << std::endl;
   // }
   if (prev && prev->task_state.IsRunning() && !cs->preempt_curr) {
-    if (!wattmeter.ReachedLimit(prev->gtid)) {
+    if (!wattmeter->ReachedLimit(prev->gtid)) {
       return prev;
     }
   }
@@ -1147,11 +1147,17 @@ EfsTask *EfsRq::PickNextTask(EfsTask *prev, TaskAllocator<EfsTask> *allocator,
 
   EfsTask *task = nullptr;
   std::vector<EfsTask *> tasks_buffer;
+  
   while (!rq_.empty()) {
     task = LeftmostRqTask();
     DequeueTask(task);
-    if (wattmeter.ReachedLimit(LeftmostRqTask()->gtid)) {
+    if (wattmeter->ReachedLimit(task->gtid)) {
+      printf("Limit\n");
       tasks_buffer.push_back(task);
+      if (rq_.empty()) {
+        printf("Returning nullptr\n");
+        return nullptr;
+      }
     } else {
       break;
     }
