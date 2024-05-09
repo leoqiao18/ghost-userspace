@@ -42,10 +42,10 @@ def spawn_tasks():
     cmds = [
         # "eas_test/no-op",
         # "eas_test/large_mem"
-        # ["python3", "efs_test/mem.py"],
-        # ["python3", "efs_test/crypto.py"],
-        ["python3", "efs_test/dynamic_load.py", "0"],
-        ["python3", "efs_test/dynamic_load.py", "1"],
+        ["python3", "efs_test/mem.py"],
+        ["python3", "efs_test/crypto.py"],
+        # ["python3", "efs_test/dynamic_load.py", "0"],
+        # ["python3", "efs_test/dynamic_load.py", "1"],
     ]
     procs = []
 

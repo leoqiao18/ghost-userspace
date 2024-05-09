@@ -93,7 +93,7 @@ def plot_timeshare_graph(sched_type, interval):
         #     float(line.split(",")[5]) / float(line.split(",")[1]) for line in lines
         # ]
 
-        lines_with_shifted_by_ten = list(zip(lines, lines[50:]))
+        lines_with_shifted_by_ten = list(zip(lines, lines[5:]))
 
         timesteps = [
             interval * i / 1000000 for i in range(0, len(lines_with_shifted_by_ten))
@@ -126,7 +126,7 @@ def plot_energy_share_graph(sched_type, interval):
     with open(file, "r") as f:
         lines = f.readlines()
 
-        lines_with_shifted_by_ten = list(zip(lines, lines[50:]))
+        lines_with_shifted_by_ten = list(zip(lines, lines[5:]))
 
         timesteps = [
             interval * i / 1000000 for i in range(0, len(lines_with_shifted_by_ten))
