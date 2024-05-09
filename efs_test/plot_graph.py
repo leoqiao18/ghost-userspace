@@ -52,7 +52,7 @@ def plot_energy_graph(sched_type, interval):
 
         timesteps = [interval * i / 1000000 for i in range(0, len(lines))]
 
-        cap = [5]
+        cap = [0]
         for i in range(1, len(lines)):
             cap.append(cap[i - 1] + 0.5)
 
@@ -66,7 +66,7 @@ def plot_energy_graph(sched_type, interval):
         proc1_energy = [p * scale for p in proc1_energy]
         proc2_energy = [p * scale for p in proc2_energy]
 
-        #plt.ylim(0, 16)
+        plt.ylim(0, 180)
         
         plt.plot(timesteps, proc1_energy, label="process 1")
         plt.plot(timesteps, proc2_energy, label="process 2")
@@ -196,14 +196,14 @@ if __name__ == "__main__":
     # Increase the figure size
     plt.figure(figsize=(3, 3), dpi=300)
     interval = int(sys.argv[2])
-    plot_power_graph(sys.argv[1] + "-cfs", interval)
+    # plot_power_graph(sys.argv[1] + "-cfs", interval)
     plot_energy_graph(sys.argv[1] + "-cfs", interval)
-    plot_timeshare_graph(sys.argv[1] + "-cfs", interval)
-    plot_energy_share_graph(sys.argv[1] + "-cfs", interval)
+    # plot_timeshare_graph(sys.argv[1] + "-cfs", interval)
+    # plot_energy_share_graph(sys.argv[1] + "-cfs", interval)
 
-    plot_power_graph(sys.argv[1] + "-efs", interval)
+    # plot_power_graph(sys.argv[1] + "-efs", interval)
     plot_energy_graph(sys.argv[1] + "-efs", interval)
-    plot_timeshare_graph(sys.argv[1] + "-efs", interval)
-    plot_energy_share_graph(sys.argv[1] + "-efs", interval)
+    # plot_timeshare_graph(sys.argv[1] + "-efs", interval)
+    # plot_energy_share_graph(sys.argv[1] + "-efs", interval)
 
-    plot_cfs_efs_energy_graph(sys.argv[1] + "-cfs", sys.argv[1] + "-efs", interval)
+    # plot_cfs_efs_energy_graph(sys.argv[1] + "-cfs", sys.argv[1] + "-efs", interval)
