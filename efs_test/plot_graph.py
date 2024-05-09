@@ -52,6 +52,12 @@ def plot_energy_graph(sched_type, interval):
 
         timesteps = [interval * i / 1000000 for i in range(0, len(lines))]
 
+        cap = [5]
+        for i in range(1, len(lines)):
+            cap.append(cap[i - 1] + 0.5)
+
+        #cap = [(0 if i == 0 else cap[i - 1] + 0.05) for i in range(0, len(lines))]
+
         sys_energy = [float(line.split(",")[0]) for line in lines]
         proc1_energy = [float(line.split(",")[2]) for line in lines]
         proc2_energy = [float(line.split(",")[4]) for line in lines]
@@ -60,10 +66,11 @@ def plot_energy_graph(sched_type, interval):
         proc1_energy = [p * scale for p in proc1_energy]
         proc2_energy = [p * scale for p in proc2_energy]
 
-        plt.ylim(0, 180)
+        #plt.ylim(0, 16)
+        plt.plot(timesteps, sys_energy, label="system")
         plt.plot(timesteps, proc1_energy, label="process 1")
         plt.plot(timesteps, proc2_energy, label="process 2")
-        plt.plot(timesteps, sys_energy, label="system")
+        plt.plot(timesteps, cap, color='red', linestyle='dashed', linewidth=0.5, label="energy cap")
 
         plt.xlabel("Time (s)")
         plt.ylabel("Energy (Joules)")
@@ -93,7 +100,7 @@ def plot_timeshare_graph(sched_type, interval):
         #     float(line.split(",")[5]) / float(line.split(",")[1]) for line in lines
         # ]
 
-        lines_with_shifted_by_ten = list(zip(lines, lines[50:]))
+        lines_with_shifted_by_ten = list(zip(lines, lines[5:]))
 
         timesteps = [
             interval * i / 1000000 for i in range(0, len(lines_with_shifted_by_ten))
@@ -126,7 +133,7 @@ def plot_energy_share_graph(sched_type, interval):
     with open(file, "r") as f:
         lines = f.readlines()
 
-        lines_with_shifted_by_ten = list(zip(lines, lines[50:]))
+        lines_with_shifted_by_ten = list(zip(lines, lines[5:]))
 
         timesteps = [
             interval * i / 1000000 for i in range(0, len(lines_with_shifted_by_ten))
