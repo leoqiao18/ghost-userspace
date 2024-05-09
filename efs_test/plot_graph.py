@@ -56,7 +56,7 @@ def plot_energy_graph(sched_type, interval):
         for i in range(1, len(lines)):
             cap.append(cap[i - 1] + 0.5)
 
-        #cap = [(0 if i == 0 else cap[i - 1] + 0.05) for i in range(0, len(lines))]
+        # cap = [(0 if i == 0 else cap[i - 1] + 0.05) for i in range(0, len(lines))]
 
         sys_energy = [float(line.split(",")[0]) for line in lines]
         proc1_energy = [float(line.split(",")[2]) for line in lines]
@@ -67,11 +67,11 @@ def plot_energy_graph(sched_type, interval):
         proc2_energy = [p * scale for p in proc2_energy]
 
         plt.ylim(0, 180)
-        
+
         plt.plot(timesteps, proc1_energy, label="process 1")
         plt.plot(timesteps, proc2_energy, label="process 2")
         plt.plot(timesteps, sys_energy, label="system")
-        plt.plot(timesteps, cap, color='red', linestyle='dashed', linewidth=0.5, label="energy cap")
+        # plt.plot(timesteps, cap, color='red', linestyle='dashed', linewidth=0.5, label="energy cap")
 
         plt.xlabel("Time (s)")
         plt.ylabel("Energy (Joules)")
