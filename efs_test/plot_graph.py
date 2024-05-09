@@ -60,10 +60,10 @@ def plot_energy_graph(sched_type, interval):
         proc1_energy = [p * scale for p in proc1_energy]
         proc2_energy = [p * scale for p in proc2_energy]
 
-        # plt.ylim(0, 120)
-        plt.plot(timesteps, sys_energy, label="system")
+        plt.ylim(0, 180)
         plt.plot(timesteps, proc1_energy, label="process 1")
         plt.plot(timesteps, proc2_energy, label="process 2")
+        plt.plot(timesteps, sys_energy, label="system")
 
         plt.xlabel("Time (s)")
         plt.ylabel("Energy (Joules)")
