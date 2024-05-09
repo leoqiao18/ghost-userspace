@@ -43,14 +43,17 @@ double Wattmeter::ComputeScore(Gtid gtid) {
     pid_t pid = gtid.tid();
     auto it = pid_to_watts.find(pid);
     if (it == pid_to_watts.end()) {
-        return 1;
+        return 0.5;
     }
     double this_watts = it->second;
-    if (min_watts == 0) {
-        return 1.0;
+
+    double sum_watts = min_watts + max_watts;
+
+    if (sum_watts == 0) {
+        return 0.5;
     }
-    double score = this_watts / min_watts;
-    score = (score - 1) * 1 + 1;
+    double score = this_watts / sum_watts;
+    score = (score - 0.5) / 2.0 + 0.5;
     return score;
 }
 
