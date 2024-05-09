@@ -32,12 +32,13 @@
 #include "lib/topology.h"
 #include "third_party/bpf/efs_bpf.h"
 
-#define DPRINT_EFS(level, message)                               \
-  do {                                                           \
-    if (ABSL_PREDICT_TRUE(verbose() < level)) break;             \
-    absl::FPrintF(stderr, "DEFS: [%.6f] cpu %d: %s\n",           \
-                  absl::ToDoubleSeconds(MonotonicNow() - start), \
-                  sched_getcpu(), message);                      \
+#define DPRINT_EFS(level, message)                                             \
+  do {                                                                         \
+    if (ABSL_PREDICT_TRUE(verbose() < level))                                  \
+      break;                                                                   \
+    absl::FPrintF(stderr, "DEFS: [%.6f] cpu %d: %s\n",                         \
+                  absl::ToDoubleSeconds(MonotonicNow() - start),               \
+                  sched_getcpu(), message);                                    \
   } while (0)
 
 // TODO: Remove this flag after we test idle load balancing
@@ -47,31 +48,26 @@ ABSL_FLAG(bool, experimental_enable_idle_load_balancing, true,
 
 namespace ghost {
 
-
-
-void PrintDebugTaskMessage(std::string message_name, CpuState* cs,
-                           EfsTask* task) {
-  DPRINT_EFS(2, absl::StrFormat(
-                    "[%s]: %s with state %s, %scurrent", message_name,
-                    task->gtid.describe(),
-                    absl::FormatStreamed(task->task_state),
-                    (cs && cs->current == task) ? "" : "!"));
+void PrintDebugTaskMessage(std::string message_name, CpuState *cs,
+                           EfsTask *task) {
+  DPRINT_EFS(2, absl::StrFormat("[%s]: %s with state %s, %scurrent",
+                                message_name, task->gtid.describe(),
+                                absl::FormatStreamed(task->task_state),
+                                (cs && cs->current == task) ? "" : "!"));
 }
 
-EfsScheduler::EfsScheduler(Enclave* enclave, CpuList cpulist,
+EfsScheduler::EfsScheduler(Enclave *enclave, CpuList cpulist,
                            std::shared_ptr<TaskAllocator<EfsTask>> allocator,
                            absl::Duration min_granularity,
-                           absl::Duration latency,
-                           struct efs_bpf *bpf,
+                           absl::Duration latency, struct efs_bpf *bpf,
                            double base_watts)
     : BasicDispatchScheduler(enclave, std::move(cpulist), std::move(allocator)),
-      min_granularity_(min_granularity),
-      latency_(latency),
+      min_granularity_(min_granularity), latency_(latency),
       wattmeter(bpf, base_watts),
       idle_load_balancing_(
           absl::GetFlag(FLAGS_experimental_enable_idle_load_balancing)) {
-  for (const Cpu& cpu : cpus()) {
-    CpuState* cs = cpu_state(cpu);
+  for (const Cpu &cpu : cpus()) {
+    CpuState *cs = cpu_state(cpu);
     cs->id = cpu.id();
 
     // EfsRq has a default constructor, meaning these parameters will initially
@@ -93,7 +89,7 @@ EfsScheduler::EfsScheduler(Enclave* enclave, CpuList cpulist,
 
 void EfsScheduler::DumpAllTasks() {
   fprintf(stderr, "task        state   cpu\n");
-  allocator()->ForEachTask([](Gtid gtid, const EfsTask* task) {
+  allocator()->ForEachTask([](Gtid gtid, const EfsTask *task) {
     absl::FPrintF(stderr, "%-12s%-8d%-8d%-8d\n", gtid.describe(),
                   static_cast<uint32_t>(task->task_state.GetState()),
                   static_cast<uint32_t>(task->task_state.GetOnRq()), task->cpu);
@@ -101,13 +97,13 @@ void EfsScheduler::DumpAllTasks() {
   });
 }
 
-void EfsScheduler::DumpState(const Cpu& cpu, int flags) {
+void EfsScheduler::DumpState(const Cpu &cpu, int flags) {
   if (flags & Scheduler::kDumpAllTasks) {
     DumpAllTasks();
   }
 
-  CpuState* cs = cpu_state(cpu);
-  EfsRq* rq = &cs->run_queue;
+  CpuState *cs = cpu_state(cpu);
+  EfsRq *rq = &cs->run_queue;
 
   {
     absl::MutexLock l(&cs->run_queue.mu_);
@@ -116,7 +112,7 @@ void EfsScheduler::DumpState(const Cpu& cpu, int flags) {
       return;
     }
 
-    const EfsTask* current = cs->current;
+    const EfsTask *current = cs->current;
     // TODO: Convert the rest of the FPrintFs and GHOST_DPRINTs to
     // DPRINT_EFS.
     absl::FPrintF(stderr, "SchedState[%d]: %s rq_l=%lu\n", cpu.id(),
@@ -125,9 +121,9 @@ void EfsScheduler::DumpState(const Cpu& cpu, int flags) {
 }
 
 void EfsScheduler::EnclaveReady() {
-  for (const Cpu& cpu : cpus()) {
-    CpuState* cs = cpu_state(cpu);
-    Agent* agent = enclave()->GetAgent(cpu);
+  for (const Cpu &cpu : cpus()) {
+    CpuState *cs = cpu_state(cpu);
+    Agent *agent = enclave()->GetAgent(cpu);
 
     // AssociateTask may fail if agent barrier is stale.
     while (!cs->channel->AssociateTask(agent->gtid(), agent->barrier(),
@@ -175,7 +171,7 @@ void EfsScheduler::EnclaveReady() {
 // robust.
 // NOTE: This is inherently racy, since we only synchronize on individual rq's
 // we are not guaranteed to see a consistent view of rq loads.
-Cpu EfsScheduler::SelectTaskRq(EfsTask* task) {
+Cpu EfsScheduler::SelectTaskRq(EfsTask *task) {
   PrintDebugTaskMessage("SelectTaskRq", nullptr, task);
 
   uint64_t min_load = UINT64_MAX;
@@ -185,7 +181,8 @@ Cpu EfsScheduler::SelectTaskRq(EfsTask* task) {
   // Get the intersection of the CPUs in this enclave and the CPU affinity
   // stored for this task.
   CpuList eligible_cpus = cpus();
-  // std::cout << "CPU AFFINITY: " << task->cpu_affinity.CpuMaskStr() << std::endl;
+  // std::cout << "CPU AFFINITY: " << task->cpu_affinity.CpuMaskStr() <<
+  // std::endl;
   eligible_cpus.Intersection(task->cpu_affinity);
   eligible_cpus.Clear(topology()->cpu(MyCpu()));
   if (eligible_cpus.Empty()) {
@@ -195,8 +192,8 @@ Cpu EfsScheduler::SelectTaskRq(EfsTask* task) {
   }
 
   // Updates the min cpu load variables and returns true if empty.
-  auto update_min = [&min_load, &min_load_cpu, &eligible_cpus](uint64_t this_load,
-                                               const Cpu& this_cpu) {
+  auto update_min = [&min_load, &min_load_cpu,
+                     &eligible_cpus](uint64_t this_load, const Cpu &this_cpu) {
     if (eligible_cpus.IsSet(this_cpu)) {
       if (min_load >= this_load) {
         min_load = this_load;
@@ -211,7 +208,7 @@ Cpu EfsScheduler::SelectTaskRq(EfsTask* task) {
   // NOTE: placing on this cpu is safe as it is in cpus() by virtue of
   // us recieving a message on its queue
   const Cpu this_cpu = topology()->cpu(MyCpu());
-  CpuState* cs = cpu_state(this_cpu);
+  CpuState *cs = cpu_state(this_cpu);
   {
     absl::MutexLock l(&cs->run_queue.mu_);
     if (update_min(cs->run_queue.Size(), this_cpu)) {
@@ -234,9 +231,10 @@ Cpu EfsScheduler::SelectTaskRq(EfsTask* task) {
     }
 
     // Check if we can find an idle l3 sibling.
-    for (const Cpu& cpu : prev_cpu.l3_siblings()) {
+    for (const Cpu &cpu : prev_cpu.l3_siblings()) {
       // We can't schedule on this cpu.
-      if (!cpus().IsSet(cpu)) continue;
+      if (!cpus().IsSet(cpu))
+        continue;
       cs = cpu_state(cpu);
       {
         absl::MutexLock l(&cs->run_queue.mu_);
@@ -248,7 +246,7 @@ Cpu EfsScheduler::SelectTaskRq(EfsTask* task) {
   }
 
   // Check if we can find any idle cpu.
-  for (const Cpu& cpu : cpus()) {
+  for (const Cpu &cpu : cpus()) {
     cs = cpu_state(cpu);
     {
       absl::MutexLock l(&cs->run_queue.mu_);
@@ -262,8 +260,8 @@ Cpu EfsScheduler::SelectTaskRq(EfsTask* task) {
   return min_load_cpu;
 }
 
-void EfsScheduler::StartMigrateTask(EfsTask* task) {
-  CpuState* cs = cpu_state_of(task);
+void EfsScheduler::StartMigrateTask(EfsTask *task) {
+  CpuState *cs = cpu_state_of(task);
   cs->run_queue.mu_.AssertHeld();
 
   cs->run_queue.DequeueTask(task);
@@ -273,10 +271,10 @@ void EfsScheduler::StartMigrateTask(EfsTask* task) {
 
 void EfsScheduler::StartMigrateCurrTask() {
   int my_cpu = MyCpu();
-  CpuState* cs = &cpu_states_[my_cpu];
+  CpuState *cs = &cpu_states_[my_cpu];
   cs->run_queue.mu_.AssertHeld();
 
-  EfsTask* task = cs->current;
+  EfsTask *task = cs->current;
   CHECK_EQ(task->cpu, my_cpu);
 
   cs->current = nullptr;
@@ -284,7 +282,7 @@ void EfsScheduler::StartMigrateCurrTask() {
   StartMigrateTask(task);
 }
 
-bool EfsScheduler::Migrate(EfsTask* task, Cpu cpu, BarrierToken seqnum) {
+bool EfsScheduler::Migrate(EfsTask *task, Cpu cpu, BarrierToken seqnum) {
   // The task is not visible to anyone except the agent currently proccessing
   // the task as the only way to get to migrate is if the task is not
   // currently on a rq, so it would be impossible for anyone else to touch the
@@ -299,8 +297,8 @@ bool EfsScheduler::Migrate(EfsTask* task, Cpu cpu, BarrierToken seqnum) {
   // Even if we got a task_departed message at the same time as we are executing
   // Migrate, there is no channel associated with the task yet, so it'll go to
   // the default channel, which is proccessed by the agent executing Migrate.
-  CpuState* cs = cpu_state(cpu);
-  const Channel* channel = cs->channel.get();
+  CpuState *cs = cpu_state(cpu);
+  const Channel *channel = cs->channel.get();
 
   // Short-circuit if we are trying to migrate to the same cpu.
   if (task->cpu == cpu.id()) {
@@ -343,7 +341,7 @@ bool EfsScheduler::Migrate(EfsTask* task, Cpu cpu, BarrierToken seqnum) {
   return true;
 }
 
-void EfsScheduler::MigrateTasks(CpuState* cs) {
+void EfsScheduler::MigrateTasks(CpuState *cs) {
   // In MigrateTasks, this agent iterates over the tasks in the migration queue
   // and removes tasks whose migrations succeed. If a task fails to migrate,
   // mostly due to new messages for that task, the task will not be removed
@@ -353,8 +351,8 @@ void EfsScheduler::MigrateTasks(CpuState* cs) {
     return;
   }
 
-  cs->migration_queue.DequeueTaskIf([this] (const EfsMq::MigrationArg& arg) {
-    EfsTask* task = arg.task;
+  cs->migration_queue.DequeueTaskIf([this](const EfsMq::MigrationArg &arg) {
+    EfsTask *task = arg.task;
 
     CHECK_NE(task, nullptr);
     CHECK(task->task_state.OnRqMigrating()) << task->gtid.describe();
@@ -366,11 +364,11 @@ void EfsScheduler::MigrateTasks(CpuState* cs) {
   });
 }
 
-void EfsScheduler::TaskNew(EfsTask* task, const Message& msg) {
+void EfsScheduler::TaskNew(EfsTask *task, const Message &msg) {
   wattmeter.AddTask(task->gtid);
 
-  const ghost_msg_payload_task_new* payload =
-      static_cast<const ghost_msg_payload_task_new*>(msg.payload());
+  const ghost_msg_payload_task_new *payload =
+      static_cast<const ghost_msg_payload_task_new *>(msg.payload());
 
   PrintDebugTaskMessage("TaskNew", nullptr, task);
 
@@ -413,7 +411,7 @@ void EfsScheduler::TaskNew(EfsTask* task, const Message& msg) {
   }
 }
 
-void EfsScheduler::TaskRunnable(EfsTask* task, const Message& msg) {
+void EfsScheduler::TaskRunnable(EfsTask *task, const Message &msg) {
   CpuState *cs = &cpu_states_[task->cpu];
   PrintDebugTaskMessage("TaskRunnable", cs, task);
   cs->run_queue.mu_.AssertHeld();
@@ -435,10 +433,10 @@ void EfsScheduler::TaskRunnable(EfsTask* task, const Message& msg) {
 // Disable thread safety analysis as this function is called with rq lock held
 // but it's hard for the compiler to infer. Without this annotation, the
 // compiler raises safety analysis error.
-void EfsScheduler::HandleTaskDone(EfsTask* task, bool from_switchto)
-  ABSL_NO_THREAD_SAFETY_ANALYSIS {
+void EfsScheduler::HandleTaskDone(EfsTask *task, bool from_switchto)
+    ABSL_NO_THREAD_SAFETY_ANALYSIS {
   wattmeter.RemoveTask(task->gtid);
-  CpuState* cs = cpu_state_of(task);
+  CpuState *cs = cpu_state_of(task);
   cs->run_queue.mu_.AssertHeld();
 
   // Remove any pending migration on this task.
@@ -464,17 +462,16 @@ void EfsScheduler::HandleTaskDone(EfsTask* task, bool from_switchto)
   } else {
     // Our assertion in ->task_state.Set(), should keep this from every
     // happening.
-    DPRINT_EFS(1,
-               absl::StrFormat(
-                   "TaskDeparted/Dead cases were not exhaustive, got %s",
-                   absl::FormatStreamed(EfsTaskState::State(prev_state))));
+    DPRINT_EFS(1, absl::StrFormat(
+                      "TaskDeparted/Dead cases were not exhaustive, got %s",
+                      absl::FormatStreamed(EfsTaskState::State(prev_state))));
   }
 }
 
-void EfsScheduler::TaskDeparted(EfsTask* task, const Message& msg) {
-  const ghost_msg_payload_task_departed* payload =
-      static_cast<const ghost_msg_payload_task_departed*>(msg.payload());
-  CpuState* cs = cpu_state_of(task);
+void EfsScheduler::TaskDeparted(EfsTask *task, const Message &msg) {
+  const ghost_msg_payload_task_departed *payload =
+      static_cast<const ghost_msg_payload_task_departed *>(msg.payload());
+  CpuState *cs = cpu_state_of(task);
   PrintDebugTaskMessage("TaskDeparted", cs, task);
   cs->run_queue.mu_.AssertHeld();
 
@@ -486,19 +483,19 @@ void EfsScheduler::TaskDeparted(EfsTask* task, const Message& msg) {
   }
 }
 
-void EfsScheduler::TaskDead(EfsTask* task, const Message& msg) {
-  CpuState* cs = cpu_state_of(task);
+void EfsScheduler::TaskDead(EfsTask *task, const Message &msg) {
+  CpuState *cs = cpu_state_of(task);
   PrintDebugTaskMessage("TaskDead", cs, task);
   cs->run_queue.mu_.AssertHeld();
 
   HandleTaskDone(task, false);
 }
 
-void EfsScheduler::TaskYield(EfsTask* task, const Message& msg) {
-  const ghost_msg_payload_task_yield* payload =
-      static_cast<const ghost_msg_payload_task_yield*>(msg.payload());
+void EfsScheduler::TaskYield(EfsTask *task, const Message &msg) {
+  const ghost_msg_payload_task_yield *payload =
+      static_cast<const ghost_msg_payload_task_yield *>(msg.payload());
   Cpu cpu = topology()->cpu(MyCpu());
-  CpuState* cs = cpu_state(cpu);
+  CpuState *cs = cpu_state(cpu);
   PrintDebugTaskMessage("TaskYield", cs, task);
   // printf("TaskYield\n");
   cs->run_queue.mu_.AssertHeld();
@@ -525,11 +522,11 @@ void EfsScheduler::TaskYield(EfsTask* task, const Message& msg) {
   }
 }
 
-void EfsScheduler::TaskBlocked(EfsTask* task, const Message& msg) {
-  const ghost_msg_payload_task_blocked* payload =
-      static_cast<const ghost_msg_payload_task_blocked*>(msg.payload());
+void EfsScheduler::TaskBlocked(EfsTask *task, const Message &msg) {
+  const ghost_msg_payload_task_blocked *payload =
+      static_cast<const ghost_msg_payload_task_blocked *>(msg.payload());
   Cpu cpu = topology()->cpu(MyCpu());
-  CpuState* cs = cpu_state(cpu);
+  CpuState *cs = cpu_state(cpu);
   PrintDebugTaskMessage("TaskBlocked", cs, task);
   cs->run_queue.mu_.AssertHeld();
 
@@ -559,11 +556,11 @@ void EfsScheduler::TaskBlocked(EfsTask* task, const Message& msg) {
   }
 }
 
-void EfsScheduler::TaskPreempted(EfsTask* task, const Message& msg) {
-  const ghost_msg_payload_task_preempt* payload =
-      static_cast<const ghost_msg_payload_task_preempt*>(msg.payload());
+void EfsScheduler::TaskPreempted(EfsTask *task, const Message &msg) {
+  const ghost_msg_payload_task_preempt *payload =
+      static_cast<const ghost_msg_payload_task_preempt *>(msg.payload());
   Cpu cpu = topology()->cpu(MyCpu());
-  CpuState* cs = cpu_state(cpu);
+  CpuState *cs = cpu_state(cpu);
   PrintDebugTaskMessage("TaskPreempted", cs, task);
   // printf("TaskPreempted");
   cs->run_queue.mu_.AssertHeld();
@@ -590,8 +587,8 @@ void EfsScheduler::TaskPreempted(EfsTask* task, const Message& msg) {
   }
 }
 
-void EfsScheduler::TaskSwitchto(EfsTask* task, const Message& msg) {
-  CpuState* cs = cpu_state_of(task);
+void EfsScheduler::TaskSwitchto(EfsTask *task, const Message &msg) {
+  CpuState *cs = cpu_state_of(task);
   PrintDebugTaskMessage("TaskSwitchTo", cs, task);
   cs->run_queue.mu_.AssertHeld();
 
@@ -606,9 +603,9 @@ void EfsScheduler::TaskSwitchto(EfsTask* task, const Message& msg) {
 // Disable thread safety analysis as this function is called with rq lock held
 // but it's hard for the compiler to infer. Without this annotation, the
 // compiler raises safety analysis error.
-void EfsScheduler::CheckPreemptTick(const Cpu& cpu)
-  ABSL_NO_THREAD_SAFETY_ANALYSIS {
-  CpuState* cs = cpu_state(cpu);
+void EfsScheduler::CheckPreemptTick(const Cpu &cpu)
+    ABSL_NO_THREAD_SAFETY_ANALYSIS {
+  CpuState *cs = cpu_state(cpu);
   cs->run_queue.mu_.AssertHeld();
 
   if (cs->current) {
@@ -623,8 +620,8 @@ void EfsScheduler::CheckPreemptTick(const Cpu& cpu)
   }
 }
 
-void EfsScheduler::PutPrevTask(EfsTask* task) {
-  CpuState* cs = &cpu_states_[MyCpu()];
+void EfsScheduler::PutPrevTask(EfsTask *task) {
+  CpuState *cs = &cpu_states_[MyCpu()];
   cs->run_queue.mu_.AssertHeld();
 
   CHECK_NE(task, nullptr);
@@ -642,16 +639,16 @@ void EfsScheduler::PutPrevTask(EfsTask* task) {
   // this task.
   if (!task->cpu_affinity.IsSet(task->cpu)) {
     StartMigrateTask(task);
-  } else {  // Otherwise just add the task into this CPU's run queue.
+  } else { // Otherwise just add the task into this CPU's run queue.
     cs->run_queue.PutPrevTask(task);
   }
 }
 
-void EfsScheduler::CpuTick(const Message& msg) {
-  const ghost_msg_payload_cpu_tick* payload =
-      static_cast<const ghost_msg_payload_cpu_tick*>(msg.payload());
+void EfsScheduler::CpuTick(const Message &msg) {
+  const ghost_msg_payload_cpu_tick *payload =
+      static_cast<const ghost_msg_payload_cpu_tick *>(msg.payload());
   Cpu cpu = topology()->cpu(payload->cpu);
-  CpuState* cs = cpu_state(cpu);
+  CpuState *cs = cpu_state(cpu);
   cs->run_queue.mu_.AssertHeld();
 
   // We do not actually need any logic in CpuTick for preemption. Since
@@ -666,14 +663,14 @@ void EfsScheduler::CpuTick(const Message& msg) {
 // Load Balance
 //-----------------------------------------------------------------------------
 
-inline void EfsScheduler::AttachTasks(struct LoadBalanceEnv& env) {
+inline void EfsScheduler::AttachTasks(struct LoadBalanceEnv &env) {
   absl::MutexLock l(&env.dst_cs->run_queue.mu_);
 
   env.dst_cs->run_queue.AttachTasks(env.tasks);
   env.imbalance -= env.tasks.size();
 }
 
-inline int EfsScheduler::DetachTasks(struct LoadBalanceEnv& env) {
+inline int EfsScheduler::DetachTasks(struct LoadBalanceEnv &env) {
   absl::MutexLock l(&env.src_cs->run_queue.mu_);
 
   env.src_cs->run_queue.DetachTasks(env.dst_cs, env.imbalance, env.tasks);
@@ -681,7 +678,7 @@ inline int EfsScheduler::DetachTasks(struct LoadBalanceEnv& env) {
   return env.tasks.size();
 }
 
-inline int EfsScheduler::CalculateImbalance(LoadBalanceEnv& env) {
+inline int EfsScheduler::CalculateImbalance(LoadBalanceEnv &env) {
   // Migrate up to half the tasks src_cpu has more then dst_cpu.
   int src_tasks = env.src_cs->run_queue.LocklessSize();
   int dst_tasks = env.dst_cs->run_queue.LocklessSize();
@@ -689,8 +686,8 @@ inline int EfsScheduler::CalculateImbalance(LoadBalanceEnv& env) {
 
   env.imbalance = 0;
   if (excess >= 2) {
-    env.imbalance = std::min(kMaxTasksToLoadBalance,
-                             static_cast<size_t>(excess / 2));
+    env.imbalance =
+        std::min(kMaxTasksToLoadBalance, static_cast<size_t>(excess / 2));
     env.tasks.reserve(env.imbalance);
   }
 
@@ -704,10 +701,11 @@ inline int EfsScheduler::FindBusiestQueue() {
 
   int busiest_runnable_nr = 0;
   int busiest_cpu = 0;
-  for (const Cpu& cpu : cpus()) {
+  for (const Cpu &cpu : cpus()) {
     int src_cpu_runnable_nr = cpu_state(cpu)->run_queue.LocklessSize();
 
-    if (src_cpu_runnable_nr <= busiest_runnable_nr) continue;
+    if (src_cpu_runnable_nr <= busiest_runnable_nr)
+      continue;
 
     busiest_runnable_nr = src_cpu_runnable_nr;
     busiest_cpu = cpu.id();
@@ -716,7 +714,7 @@ inline int EfsScheduler::FindBusiestQueue() {
   return busiest_cpu;
 }
 
-inline bool EfsScheduler::ShouldWeBalance(LoadBalanceEnv& env) {
+inline bool EfsScheduler::ShouldWeBalance(LoadBalanceEnv &env) {
   // Allow any newly idle CPU to do the newly idle load balance.
   if (env.idle == CpuIdleType::kCpuNewlyIdle) {
     return env.dst_cs->LocklessRqEmpty();
@@ -725,8 +723,8 @@ inline bool EfsScheduler::ShouldWeBalance(LoadBalanceEnv& env) {
   // Load balance runs from the first idle CPU or if there are no idle CPUs then
   // the first CPU in the enclave.
   int dst_cpu = cpus().Front().id();
-  for (const Cpu& cpu : cpus()) {
-    CpuState* dst_cs = cpu_state(cpu);
+  for (const Cpu &cpu : cpus()) {
+    CpuState *dst_cs = cpu_state(cpu);
     if (dst_cs->LocklessRqEmpty()) {
       dst_cpu = cpu.id();
       break;
@@ -736,7 +734,7 @@ inline bool EfsScheduler::ShouldWeBalance(LoadBalanceEnv& env) {
   return dst_cpu == MyCpu();
 }
 
-inline int EfsScheduler::LoadBalance(CpuState* cs, CpuIdleType idle_type) {
+inline int EfsScheduler::LoadBalance(CpuState *cs, CpuIdleType idle_type) {
   struct LoadBalanceEnv env;
   int my_cpu = MyCpu();
 
@@ -764,7 +762,7 @@ inline int EfsScheduler::LoadBalance(CpuState* cs, CpuIdleType idle_type) {
   return moved_tasks_cnt;
 }
 
-inline EfsTask* EfsScheduler::NewIdleBalance(CpuState* cs) {
+inline EfsTask *EfsScheduler::NewIdleBalance(CpuState *cs) {
   int load_balanced = LoadBalance(cs, CpuIdleType::kCpuNewlyIdle);
   if (load_balanced <= 0) {
     return nullptr;
@@ -778,12 +776,12 @@ inline EfsTask* EfsScheduler::NewIdleBalance(CpuState* cs) {
 // Schedule
 //-----------------------------------------------------------------------------
 
-void EfsScheduler::EfsSchedule(const Cpu& cpu, BarrierToken agent_barrier,
+void EfsScheduler::EfsSchedule(const Cpu &cpu, BarrierToken agent_barrier,
                                bool prio_boost) {
-  RunRequest* req = enclave()->GetRunRequest(cpu);
-  CpuState* cs = cpu_state(cpu);
+  RunRequest *req = enclave()->GetRunRequest(cpu);
+  CpuState *cs = cpu_state(cpu);
 
-  EfsTask* prev = cs->current;
+  EfsTask *prev = cs->current;
 
   if (prio_boost) {
     // If we are currently running a task, we need to put it back onto the
@@ -791,25 +789,25 @@ void EfsScheduler::EfsSchedule(const Cpu& cpu, BarrierToken agent_barrier,
     if (prev) {
       absl::MutexLock l(&cs->run_queue.mu_);
       switch (prev->task_state.GetState()) {
-        case EfsTaskState::State::kNumStates:
-          CHECK(false);
-          break;
-        case EfsTaskState::State::kBlocked:
-          break;
-        case EfsTaskState::State::kDone:
-          cs->run_queue.DequeueTask(prev);
-          allocator()->FreeTask(prev);
-          break;
-        case EfsTaskState::State::kRunnable:
-          // This case exclusively handles a task yield:
-          // - TaskYield: task->state goes from kRunning -> kRunnable
-          // - PickNextTask: we need to put the task back in the rq.
-          cs->run_queue.PutPrevTask(prev);
-          break;
-        case EfsTaskState::State::kRunning:
-          cs->run_queue.PutPrevTask(prev);
-          prev->task_state.SetState(EfsTaskState::State::kRunnable);
-          break;
+      case EfsTaskState::State::kNumStates:
+        CHECK(false);
+        break;
+      case EfsTaskState::State::kBlocked:
+        break;
+      case EfsTaskState::State::kDone:
+        cs->run_queue.DequeueTask(prev);
+        allocator()->FreeTask(prev);
+        break;
+      case EfsTaskState::State::kRunnable:
+        // This case exclusively handles a task yield:
+        // - TaskYield: task->state goes from kRunning -> kRunnable
+        // - PickNextTask: we need to put the task back in the rq.
+        cs->run_queue.PutPrevTask(prev);
+        break;
+      case EfsTaskState::State::kRunning:
+        cs->run_queue.PutPrevTask(prev);
+        prev->task_state.SetState(EfsTaskState::State::kRunnable);
+        break;
       }
 
       cs->preempt_curr = false;
@@ -832,7 +830,7 @@ void EfsScheduler::EfsSchedule(const Cpu& cpu, BarrierToken agent_barrier,
   }
 
   cs->run_queue.mu_.Lock();
-  EfsTask* next = cs->run_queue.PickNextTask(prev, allocator(), cs);
+  EfsTask *next = cs->run_queue.PickNextTask(prev, allocator(), cs);
   cs->run_queue.mu_.Unlock();
 
   if (!next && idle_load_balancing_) {
@@ -892,7 +890,8 @@ void EfsScheduler::EfsSchedule(const Cpu& cpu, BarrierToken agent_barrier,
 
       absl::uint128 cfs_vruntime_delta =
           static_cast<absl::uint128>(next->inverse_weight) * runtime >> 22;
-      absl::uint128 eas_vruntime_delta = (absl::uint128) (energy_score * (double) cfs_vruntime_delta);
+      absl::uint128 eas_vruntime_delta =
+          (absl::uint128)(energy_score * (double)cfs_vruntime_delta);
       next->vruntime +=
           absl::Nanoseconds(static_cast<uint64_t>(eas_vruntime_delta));
     } else {
@@ -908,9 +907,9 @@ void EfsScheduler::EfsSchedule(const Cpu& cpu, BarrierToken agent_barrier,
   }
 }
 
-void EfsScheduler::Schedule(const Cpu& cpu, const StatusWord& agent_sw) {
+void EfsScheduler::Schedule(const Cpu &cpu, const StatusWord &agent_sw) {
   BarrierToken agent_barrier = agent_sw.barrier();
-  CpuState* cs = cpu_state(cpu);
+  CpuState *cs = cpu_state(cpu);
   if (cs->current != NULL) {
     wattmeter.Update(cs->current->gtid);
   }
@@ -930,8 +929,8 @@ void EfsScheduler::Schedule(const Cpu& cpu, const StatusWord& agent_sw) {
   EfsSchedule(cpu, agent_barrier, agent_sw.boosted_priority());
 }
 
-void EfsScheduler::PingCpu(const Cpu& cpu) {
-  Agent* agent = enclave()->GetAgent(cpu);
+void EfsScheduler::PingCpu(const Cpu &cpu) {
+  Agent *agent = enclave()->GetAgent(cpu);
   if (agent) {
     agent->Ping();
   }
@@ -940,13 +939,14 @@ void EfsScheduler::PingCpu(const Cpu& cpu) {
 // Disable thread safety analysis as this function is called with rq lock held
 // but it's hard for the compiler to infer. Without this annotation, the
 // compiler raises safety analysis error.
-void EfsScheduler::TaskAffinityChanged(EfsTask* task, const Message& msg)
-  ABSL_NO_THREAD_SAFETY_ANALYSIS {
-  const ghost_msg_payload_task_affinity_changed* payload =
-    static_cast<const ghost_msg_payload_task_affinity_changed*>(msg.payload());
+void EfsScheduler::TaskAffinityChanged(EfsTask *task, const Message &msg)
+    ABSL_NO_THREAD_SAFETY_ANALYSIS {
+  const ghost_msg_payload_task_affinity_changed *payload =
+      static_cast<const ghost_msg_payload_task_affinity_changed *>(
+          msg.payload());
 
   // Make sure to remove the task from the current cpu.
-  CpuState* cs = cpu_state_of(task);
+  CpuState *cs = cpu_state_of(task);
   cs->run_queue.mu_.AssertHeld();
 
   CHECK_EQ(task->gtid.id(), payload->gtid);
@@ -954,7 +954,7 @@ void EfsScheduler::TaskAffinityChanged(EfsTask* task, const Message& msg)
   CpuList cpu_affinity = MachineTopology()->EmptyCpuList();
   if (GhostHelper()->SchedGetAffinity(task->gtid, cpu_affinity) != 0) {
     DPRINT_EFS(3, absl::StrFormat("[%s]: Cannot retrieve the CPU mask.",
-      task->gtid.describe()));
+                                  task->gtid.describe()));
     cpu_affinity = cpus();
   }
 
@@ -976,12 +976,12 @@ void EfsScheduler::TaskAffinityChanged(EfsTask* task, const Message& msg)
   }
 }
 
-void EfsScheduler::TaskPriorityChanged(EfsTask* task, const Message& msg) {
-  const ghost_msg_payload_task_priority_changed* payload =
-      static_cast<const ghost_msg_payload_task_priority_changed*>(
+void EfsScheduler::TaskPriorityChanged(EfsTask *task, const Message &msg) {
+  const ghost_msg_payload_task_priority_changed *payload =
+      static_cast<const ghost_msg_payload_task_priority_changed *>(
           msg.payload());
 
-  CpuState* cs = cpu_state_of(task);
+  CpuState *cs = cpu_state_of(task);
   cs->run_queue.mu_.AssertHeld();
 
   CHECK_EQ(task->gtid.id(), payload->gtid);
@@ -1014,13 +1014,13 @@ void EfsTaskState::AssertValidTransition(State next) {
     for (uint32_t i = 0;
          i < static_cast<uint32_t>(EfsTaskState::State::kNumStates); ++i) {
       if ((valid_states & (1 << static_cast<uint32_t>(i))) != 0) {
-        DPRINT_EFS(1, absl::StrFormat("%s", absl::FormatStreamed(
-            EfsTaskState::State(i))));
+        DPRINT_EFS(1, absl::StrFormat(
+                          "%s", absl::FormatStreamed(EfsTaskState::State(i))));
       }
     }
 
     DPRINT_EFS(1, absl::StrFormat("[%s]: State trace:", task_name_));
-    state_trace_.ForEach([this] (const FullState& s) {
+    state_trace_.ForEach([this](const FullState &s) {
       DPRINT_EFS(1, absl::StrFormat("[%s]: (%s, %s)", task_name_,
                                     absl::FormatStreamed(s.state),
                                     absl::FormatStreamed(s.on_rq)));
@@ -1047,17 +1047,15 @@ void EfsTaskState::AssertValidTransition(OnRq next) {
 
     // Extract all the valid from states.
     for (uint32_t i = 0;
-         i < static_cast<uint32_t>(EfsTaskState::OnRq::kNumStates);
-         ++i) {
+         i < static_cast<uint32_t>(EfsTaskState::OnRq::kNumStates); ++i) {
       if ((valid_states & (1 << static_cast<uint32_t>(i))) != 0) {
-        DPRINT_EFS(
-            1, absl::StrFormat(
-                "%s", absl::FormatStreamed(EfsTaskState::OnRq(i))));
+        DPRINT_EFS(1, absl::StrFormat(
+                          "%s", absl::FormatStreamed(EfsTaskState::OnRq(i))));
       }
     }
 
     DPRINT_EFS(1, absl::StrFormat("[%s]: State trace:", task_name_));
-    state_trace_.ForEach([this] (const FullState& s) {
+    state_trace_.ForEach([this](const FullState &s) {
       DPRINT_EFS(1, absl::StrFormat("[%s]: (%s, %s)", task_name_,
                                     absl::FormatStreamed(s.state),
                                     absl::FormatStreamed(s.on_rq)));
@@ -1068,11 +1066,11 @@ void EfsTaskState::AssertValidTransition(OnRq next) {
   }
 }
 
-#endif  // !NDEBUG
+#endif // !NDEBUG
 
 EfsRq::EfsRq() : min_vruntime_(absl::ZeroDuration()), rq_(&EfsTask::Less) {}
 
-void EfsRq::EnqueueTask(EfsTask* task) {
+void EfsRq::EnqueueTask(EfsTask *task) {
   CHECK_GE(task->cpu, 0);
 
   DPRINT_EFS(2, absl::StrFormat("[%s]: Enqueing task", task->gtid.describe()));
@@ -1088,7 +1086,7 @@ void EfsRq::EnqueueTask(EfsTask* task) {
   InsertTaskIntoRq(task);
 }
 
-void EfsRq::PutPrevTask(EfsTask* task) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+void EfsRq::PutPrevTask(EfsTask *task) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   CHECK_GE(task->cpu, 0);
 
   DPRINT_EFS(2,
@@ -1097,15 +1095,17 @@ void EfsRq::PutPrevTask(EfsTask* task) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   InsertTaskIntoRq(task);
 }
 
-EfsTask* EfsRq::PickNextTask(EfsTask* prev, TaskAllocator<EfsTask>* allocator,
-                             CpuState* cs) {
+EfsTask *EfsRq::PickNextTask(EfsTask *prev, TaskAllocator<EfsTask> *allocator,
+                             CpuState *cs) {
   // Check if we can just keep running the current task.
   // std::cout << (prev == NULL)  << std::endl;
   // if (prev != NULL) {
   //   std::cout << (prev->task_state.IsRunning()) << std::endl;
   // }
   if (prev && prev->task_state.IsRunning() && !cs->preempt_curr) {
-    return prev;
+    if (!wattmeter.ReachedLimit(prev->gtid)) {
+      return prev;
+    }
   }
 
   // Past here, we will return a new task to run, so reset our preemption flag.
@@ -1118,24 +1118,24 @@ EfsTask* EfsRq::PickNextTask(EfsTask* prev, TaskAllocator<EfsTask>* allocator,
   // PickNextTask.
   if (prev) {
     switch (prev->task_state.GetState()) {
-      case EfsTaskState::State::kNumStates:
-        CHECK(false);
-        break;
-      case EfsTaskState::State::kBlocked:
-        break;
-      case EfsTaskState::State::kDone:
-        DequeueTask(prev);
-        allocator->FreeTask(prev);
-        break;
-      case EfsTaskState::State::kRunnable:
-        PutPrevTask(prev);
-        break;
-      case EfsTaskState::State::kRunning:
-        // We had the preempt curr flag set, so we need to put our current task
-        // back into the rq.
-        PutPrevTask(prev);
-        prev->task_state.SetState(EfsTaskState::State::kRunnable);
-        break;
+    case EfsTaskState::State::kNumStates:
+      CHECK(false);
+      break;
+    case EfsTaskState::State::kBlocked:
+      break;
+    case EfsTaskState::State::kDone:
+      DequeueTask(prev);
+      allocator->FreeTask(prev);
+      break;
+    case EfsTaskState::State::kRunnable:
+      PutPrevTask(prev);
+      break;
+    case EfsTaskState::State::kRunning:
+      // We had the preempt curr flag set, so we need to put our current task
+      // back into the rq.
+      PutPrevTask(prev);
+      prev->task_state.SetState(EfsTaskState::State::kRunnable);
+      break;
     }
   }
 
@@ -1145,8 +1145,23 @@ EfsTask* EfsRq::PickNextTask(EfsTask* prev, TaskAllocator<EfsTask>* allocator,
     return nullptr;
   }
 
-  EfsTask* task = LeftmostRqTask();
-  DequeueTask(task);
+  EfsTask *task = nullptr;
+  std::vector<EfsTask *> tasks_buffer;
+  while (!rq_.empty()) {
+    task = LeftmostRqTask();
+    DequeueTask(task);
+    if (wattmeter.ReachedLimit(LeftmostRqTask()->gtid)) {
+      tasks_buffer.push_back(task);
+    } else {
+      break;
+    }
+  }
+
+  while (tasks_buffer.size() > 0) {
+    EnqueueTask(tasks_buffer.back());
+    tasks_buffer.pop_back();
+  }
+
   task->task_state.SetState(EfsTaskState::State::kRunning);
   task->runtime_at_first_pick_ns = task->status_word.runtime();
 
@@ -1159,7 +1174,7 @@ EfsTask* EfsRq::PickNextTask(EfsTask* prev, TaskAllocator<EfsTask>* allocator,
   return task;
 }
 
-void EfsRq::DequeueTask(EfsTask* task) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+void EfsRq::DequeueTask(EfsTask *task) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   DPRINT_EFS(2, absl::StrFormat("[%s]: Erasing task", task->gtid.describe()));
   if (rq_.erase(task)) {
     task->task_state.SetOnRq(EfsTaskState::OnRq::kDequeued);
@@ -1178,15 +1193,15 @@ void EfsRq::DequeueTask(EfsTask* task) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   // CHECK(false);
 }
 
-void EfsRq::UpdateMinVruntime(CpuState* cs) {
+void EfsRq::UpdateMinVruntime(CpuState *cs) {
   // We want to make sure min_vruntime_ is set to the min of curr's vruntime and
   // the vruntime of our leftmost node. We do this so that:
   // - if curr is immediately placed back into the rq, we don't go back in time
   // wrt vruntime
   // - if a new task is inserted into the rq, it doesn't get treated unfairly
   // wrt to curr
-  EfsTask* leftmost = LeftmostRqTask();
-  EfsTask* curr = cs->current;
+  EfsTask *leftmost = LeftmostRqTask();
+  EfsTask *curr = cs->current;
 
   absl::Duration vruntime = min_vruntime_;
 
@@ -1222,7 +1237,7 @@ absl::Duration EfsRq::MinPreemptionGranularity() {
   // Get the number of tasks our cpu is handling. As we only call this to check
   // if cs->current should be pulled be preempted, the number of tasks
   // associated with the cpu is rq_.size() + 1;
-  std::multiset<EfsTask*, bool (*)(EfsTask*, EfsTask*)>::size_type tasks =
+  std::multiset<EfsTask *, bool (*)(EfsTask *, EfsTask *)>::size_type tasks =
       rq_.size() + 1;
   if (tasks * min_preemption_granularity_ > latency_) {
     // If we target latency_, each task will run for less than min_granularity
@@ -1236,7 +1251,7 @@ absl::Duration EfsRq::MinPreemptionGranularity() {
   return (latency_ + absl::Nanoseconds(tasks - 1)) / tasks;
 }
 
-void EfsRq::InsertTaskIntoRq(EfsTask* task) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+void EfsRq::InsertTaskIntoRq(EfsTask *task) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   task->task_state.SetOnRq(EfsTaskState::OnRq::kQueued);
   rq_.insert(task);
   rq_size_.store(rq_.size(), std::memory_order_relaxed);
@@ -1245,15 +1260,15 @@ void EfsRq::InsertTaskIntoRq(EfsTask* task) ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
                                 task->gtid.describe()));
 }
 
-void EfsRq::AttachTasks(const std::vector<EfsTask*>& tasks)
+void EfsRq::AttachTasks(const std::vector<EfsTask *> &tasks)
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-  for (EfsTask* task : tasks) {
+  for (EfsTask *task : tasks) {
     EnqueueTask(task);
   }
 }
 
-int EfsRq::DetachTasks(const CpuState* dst_cs, int n,
-                       std::vector<EfsTask*>& tasks)
+int EfsRq::DetachTasks(const CpuState *dst_cs, int n,
+                       std::vector<EfsTask *> &tasks)
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
   int tasks_detached = 0;
   for (auto it = rq_.begin(); it != rq_.end();) {
@@ -1261,7 +1276,7 @@ int EfsRq::DetachTasks(const CpuState* dst_cs, int n,
       break;
     }
 
-    EfsTask* task = *it;
+    EfsTask *task = *it;
     CHECK_NE(task, nullptr);
     if (CanMigrateTask(task, dst_cs)) {
       tasks.push_back(task);
@@ -1279,11 +1294,11 @@ int EfsRq::DetachTasks(const CpuState* dst_cs, int n,
   return tasks_detached;
 }
 
-bool EfsRq::CanMigrateTask(EfsTask* task, const CpuState* dst_cs) {
+bool EfsRq::CanMigrateTask(EfsTask *task, const CpuState *dst_cs) {
   uint32_t seqnum = task->seqnum.load();
 
   int dst_cpu = dst_cs->id;
-  const Channel* channel = dst_cs->channel.get();
+  const Channel *channel = dst_cs->channel.get();
 
   if (dst_cpu >= 0 && !task->cpu_affinity.IsSet(dst_cpu)) {
     return false;
@@ -1298,12 +1313,12 @@ bool EfsRq::CanMigrateTask(EfsTask* task, const CpuState* dst_cs) {
 }
 
 std::unique_ptr<EfsScheduler> MultiThreadedEfsScheduler(
-    Enclave* enclave, CpuList cpulist, absl::Duration min_granularity,
+    Enclave *enclave, CpuList cpulist, absl::Duration min_granularity,
     absl::Duration latency, struct efs_bpf *bpf, double base_watts) {
   auto allocator = std::make_shared<ThreadSafeMallocTaskAllocator<EfsTask>>();
-  auto scheduler = std::make_unique<EfsScheduler>(enclave, std::move(cpulist),
-                                                  std::move(allocator),
-                                                  min_granularity, latency, bpf, base_watts);
+  auto scheduler = std::make_unique<EfsScheduler>(
+      enclave, std::move(cpulist), std::move(allocator), min_granularity,
+      latency, bpf, base_watts);
   return scheduler;
 }
 
@@ -1332,38 +1347,38 @@ void EfsAgent::AgentThread() {
   }
 }
 
-std::ostream& operator<<(std::ostream& os, EfsTaskState::State state) {
+std::ostream &operator<<(std::ostream &os, EfsTaskState::State state) {
   switch (state) {
-    case EfsTaskState::State::kBlocked:
-      return os << "kBlocked";
-    case EfsTaskState::State::kDone:
-      return os << "kDone";
-    case EfsTaskState::State::kRunning:
-      return os << "kRunning";
-    case EfsTaskState::State::kRunnable:
-      return os << "kRunnable";
-    case EfsTaskState::State::kNumStates:
-      return os << "SENTINEL";
+  case EfsTaskState::State::kBlocked:
+    return os << "kBlocked";
+  case EfsTaskState::State::kDone:
+    return os << "kDone";
+  case EfsTaskState::State::kRunning:
+    return os << "kRunning";
+  case EfsTaskState::State::kRunnable:
+    return os << "kRunnable";
+  case EfsTaskState::State::kNumStates:
+    return os << "SENTINEL";
   }
 }
 
-std::ostream& operator<<(std::ostream& os, EfsTaskState::OnRq state) {
+std::ostream &operator<<(std::ostream &os, EfsTaskState::OnRq state) {
   switch (state) {
-    case EfsTaskState::OnRq::kDequeued:
-      return os << "kDequeued";
-    case EfsTaskState::OnRq::kQueued:
-      return os << "kQueued";
-    case EfsTaskState::OnRq::kMigrating:
-      return os << "kMigrating";
-    case EfsTaskState::OnRq::kNumStates:
-      return os << "SENTINEL";
+  case EfsTaskState::OnRq::kDequeued:
+    return os << "kDequeued";
+  case EfsTaskState::OnRq::kQueued:
+    return os << "kQueued";
+  case EfsTaskState::OnRq::kMigrating:
+    return os << "kMigrating";
+  case EfsTaskState::OnRq::kNumStates:
+    return os << "SENTINEL";
   }
 }
 
-std::ostream& operator<<(std::ostream& os, const EfsTaskState& state) {
-  return os << absl::StrFormat(
-             "(%s, %s)", absl::FormatStreamed(state.GetState()),
-             absl::FormatStreamed(state.GetOnRq()));
+std::ostream &operator<<(std::ostream &os, const EfsTaskState &state) {
+  return os << absl::StrFormat("(%s, %s)",
+                               absl::FormatStreamed(state.GetState()),
+                               absl::FormatStreamed(state.GetOnRq()));
 }
 
-}  //  namespace ghost
+} //  namespace ghost
